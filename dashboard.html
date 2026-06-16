@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,6 +42,7 @@
         <div class="card"><div class="card-stat" id="statTotalUsers">0</div><h3>Total Users</h3><p>Registered users on the system</p></div>
         <div class="card"><div class="card-stat" id="statTotalSubmissions">0</div><h3>SNARF Submissions</h3><p>Total form submissions received</p></div>
         <div class="card"><div class="card-stat" id="statPending">0</div><h3>Pending</h3><p>Submissions awaiting review</p></div>
+        <div class="card"><div class="card-stat" id="statReviewed">0</div><h3>Reviewed</h3><p>Reviewed, awaiting approval</p></div>
         <div class="card"><div class="card-stat" id="statApproved">0</div><h3>Approved</h3><p>Approved submissions</p></div>
         <div class="card"><div class="card-stat" id="statRejected">0</div><h3>Rejected</h3><p>Rejected submissions</p></div>
         <div class="card"><div class="card-stat" id="statApprovalRate">0%</div><h3>Approval Rate</h3><p>Percentage of approved requests</p></div>
@@ -56,7 +56,7 @@
         <div class="snarf-summary">
           <div class="summary-card summary-pending" style="flex:none; min-width:220px;">
             <span class="summary-count" id="pendingsTotalCount">0</span>
-            <span class="summary-label">Awaiting Review</span>
+            <span class="summary-label">Awaiting Action</span>
           </div>
         </div>
         <div class="snarf-toolbar">
@@ -75,7 +75,7 @@
                 <th><input type="checkbox" id="pendingsSelectAll" onclick="pendingsToggleSelectAll(this)" /></th>
                 <th>Form ID</th><th>Last Name</th><th>First Name</th><th>M.I.</th>
                 <th>Office/Division</th><th>Telephone</th><th>Date</th><th>Purpose</th>
-                <th>Period</th><th>From</th><th>To</th><th>Action</th>
+                <th>Period</th><th>From</th><th>To</th><th>Status</th><th>Action</th>
               </tr>
             </thead>
             <tbody id="pendingsResultsBody"></tbody>
@@ -89,11 +89,11 @@
     <div id="snarf-form" class="tab-content">
       <div class="snarf-results">
         <h2>📋 Form Submissions</h2>
-        <!-- FIXED: Generic text — JS will set the correct role name -->
         <div class="viewer-notice" id="viewerNotice">ℹ️ You have <strong id="viewerNoticeRole">Viewer</strong> access. You can only view submissions.</div>
         <div class="snarf-summary">
           <div class="summary-card summary-total"><span class="summary-count" id="summaryTotal">0</span><span class="summary-label">Total</span></div>
           <div class="summary-card summary-pending"><span class="summary-count" id="summaryPending">0</span><span class="summary-label">Pending</span></div>
+          <div class="summary-card summary-reviewed"><span class="summary-count" id="summaryReviewed">0</span><span class="summary-label">Reviewed</span></div>
           <div class="summary-card summary-approved"><span class="summary-count" id="summaryApproved">0</span><span class="summary-label">Approved</span></div>
           <div class="summary-card summary-rejected"><span class="summary-count" id="summaryRejected">0</span><span class="summary-label">Rejected</span></div>
         </div>
@@ -101,7 +101,11 @@
           <div class="snarf-toolbar-left">
             <input type="text" class="snarf-search-input" id="snarfSearchInput" placeholder="🔍 Search by name, office, ID..." oninput="filterSnarfTable()" />
             <select class="snarf-filter-select" id="snarfStatusFilter" onchange="filterSnarfTable()">
-              <option value="all">All Status</option><option value="Pending">Pending</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option>
+              <option value="all">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Reviewed">Reviewed</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
             </select>
           </div>
           <div class="snarf-toolbar-right" id="snarfToolbarRight">
