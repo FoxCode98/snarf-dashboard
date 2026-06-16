@@ -432,6 +432,16 @@ table tr:hover { background-color: #f9f9f9; }
 }
 .viewer-notice.visible { display: block; }
 
+/* ===== REVIEWED STATUS ===== */
+.status-reviewed { background-color: #dbeafe; color: #1e40af; }
+
+.summary-reviewed { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.summary-reviewed .summary-count { color: #3b82f6; }
+.summary-reviewed .summary-label { color: #1e40af; }
+
+.detail-actioned-section.reviewed-section { background: #eff6ff; border-left-color: #3b82f6; }
+
+
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
   .navbar {
