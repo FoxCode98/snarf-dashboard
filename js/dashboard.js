@@ -1,5 +1,8 @@
 
-// dashboard.js - FINAL FIXED VERSION
+// dashboard.js - MULTI-STAGE APPROVAL VERSION
+// Editor: Pending → Reviewed or Rejected (Stage 1)
+// Supervisor: Reviewed → Approved or Rejected (Stage 2)
+// Admin: Can do anything at any stage
 // Viewer: sees ALL logs, read-only
 // Submitter: sees OWN logs, read-only
 
@@ -28,7 +31,7 @@ function applyRolePermissions() {
   const role = user.role || 'Viewer';
 
   const navInfo = document.getElementById('navUserInfo');
-  if (navInfo) navInfo.innerHTML = `<strong>${user.name}</strong> • ${role}`;
+  if (navInfo) navInfo.innerHTML = '<strong>' + user.name + '</strong> • ' + role;
 
   if (role === 'Admin') return;
 
@@ -52,9 +55,9 @@ function applyRolePermissions() {
     hideEl('bulkRejectBtn');
     hideEl('bulkDeleteBtn');
     hideEl('thCheckboxCol');
-    const noticeRole = document.getElementById('viewerNoticeRole');
+    var noticeRole = document.getElementById('viewerNoticeRole');
     if (noticeRole) noticeRole.textContent = 'Submitter';
-    const notice = document.getElementById('viewerNotice');
+    var notice = document.getElementById('viewerNotice');
     if (notice) notice.classList.add('visible');
     return;
   }
@@ -67,15 +70,15 @@ function applyRolePermissions() {
     hideEl('bulkRejectBtn');
     hideEl('bulkDeleteBtn');
     hideEl('thCheckboxCol');
-    const noticeRole = document.getElementById('viewerNoticeRole');
+    var noticeRole = document.getElementById('viewerNoticeRole');
     if (noticeRole) noticeRole.textContent = 'Viewer';
-    const notice = document.getElementById('viewerNotice');
+    var notice = document.getElementById('viewerNotice');
     if (notice) notice.classList.add('visible');
   }
 }
 
 function hideEl(id) {
-  const el = document.getElementById(id);
+  var el = document.getElementById(id);
   if (el) el.style.display = 'none';
 }
 
@@ -104,7 +107,6 @@ window.addEventListener('DOMContentLoaded', function () {
   loadTabVisibilitySettings();
   applyRolePermissions();
 
-  // Pre-load SNARF data so it's ready
   try {
     filterSnarfTable();
     updateSnarfSummary();
@@ -115,12 +117,12 @@ window.addEventListener('DOMContentLoaded', function () {
 });
 
 function displayCurrentUser() {
-  const el = document.getElementById('welcomeMessage');
-  if (el) el.textContent = `Welcome, ${getCurrentUser().name}! 👋`;
+  var el = document.getElementById('welcomeMessage');
+  if (el) el.textContent = 'Welcome, ' + getCurrentUser().name + '! 👋';
 }
 
 function loadUsersFromStorage() {
-  const s = localStorage.getItem('appUsers');
+  var s = localStorage.getItem('appUsers');
   if (s) users = JSON.parse(s);
   else saveUsersToStorage();
 }
@@ -129,25 +131,26 @@ function saveUsersToStorage() {
   localStorage.setItem('appUsers', JSON.stringify(users));
 }
 
-function renderUsersTable(filterTerm = '') {
-  const tbody = document.getElementById('userTableBody');
+function renderUsersTable(filterTerm) {
+  filterTerm = filterTerm || '';
+  var tbody = document.getElementById('userTableBody');
   if (!tbody) return;
   tbody.innerHTML = '';
-  let filtered = users;
-  if (filterTerm) filtered = users.filter(u => [u.name, u.email, u.role].join(' ').toLowerCase().includes(filterTerm));
+  var filtered = users;
+  if (filterTerm) filtered = users.filter(function (u) { return [u.name, u.email, u.role].join(' ').toLowerCase().indexOf(filterTerm) !== -1; });
   if (filtered.length === 0) {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;font-style:italic;padding:25px;">No users found.</td></tr>';
   } else {
-    filtered.forEach(user => {
+    filtered.forEach(function (user) {
       tbody.innerHTML += '<tr><td>' + user.name + '</td><td>' + user.email + '</td><td><span class="role-badge role-' + user.role.toLowerCase() + '">' + user.role + '</span></td><td><div class="action-buttons"><button class="edit-btn" onclick="openEditUserModal(' + user.id + ')">Edit</button><button class="delete-btn" onclick="deleteUser(' + user.id + ')">Delete</button></div></td></tr>';
     });
   }
-  const badge = document.getElementById('userCountBadge');
+  var badge = document.getElementById('userCountBadge');
   if (badge) badge.textContent = users.length + ' user' + (users.length !== 1 ? 's' : '');
 }
 
 function filterUsersTable() {
-  const el = document.getElementById('userSearchInput');
+  var el = document.getElementById('userSearchInput');
   renderUsersTable(el ? el.value.toLowerCase().trim() : '');
 }
 
@@ -164,7 +167,7 @@ function openAddUserModal() {
 
 function openEditUserModal(userId) {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
-  const user = users.find(u => u.id === userId);
+  var user = users.find(function (u) { return u.id === userId; });
   if (user) {
     editingUserId = userId;
     var mt = document.getElementById('modalTitle'); if (mt) mt.textContent = 'Edit User';
@@ -186,17 +189,17 @@ function saveUser() {
   var ueEl = document.getElementById('userEmail');
   var upEl = document.getElementById('userPassword');
   var urEl = document.getElementById('userRole');
-  const name = unEl ? unEl.value.trim() : '';
-  const email = ueEl ? ueEl.value.trim() : '';
-  const password = upEl ? upEl.value.trim() : '';
-  const role = urEl ? urEl.value : 'Viewer';
+  var name = unEl ? unEl.value.trim() : '';
+  var email = ueEl ? ueEl.value.trim() : '';
+  var password = upEl ? upEl.value.trim() : '';
+  var role = urEl ? urEl.value : 'Viewer';
   if (!name || !email || !password) { showToast('Please fill in all fields.', 'error'); return; }
   if (editingUserId) {
-    const user = users.find(u => u.id === editingUserId);
+    var user = users.find(function (u) { return u.id === editingUserId; });
     if (user) { user.name = name; user.email = email; user.password = password; user.role = role; }
     showToast('User updated successfully!', 'success');
   } else {
-    const newId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
+    var newId = users.length > 0 ? Math.max.apply(null, users.map(function (u) { return u.id; })) + 1 : 1;
     users.push({ id: newId, name: name, email: email, password: password, role: role });
     showToast('User added successfully!', 'success');
   }
@@ -206,7 +209,7 @@ function saveUser() {
 function deleteUser(userId) {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
   if (confirm('Are you sure you want to delete this user?')) {
-    users = users.filter(u => u.id !== userId);
+    users = users.filter(function (u) { return u.id !== userId; });
     saveUsersToStorage(); filterUsersTable(); updateDashboardStats();
     showToast('User deleted successfully.', 'error');
   }
@@ -214,15 +217,15 @@ function deleteUser(userId) {
 
 // ===================== TAB SWITCHING =====================
 function switchTab(tabName, btnElement) {
-  const role = getCurrentRole();
+  var role = getCurrentRole();
   if ((role === 'Viewer' || role === 'Submitter') && (tabName === 'analytics' || tabName === 'settings' || tabName === 'pendings')) {
     showToast('You do not have access to this tab.', 'error'); return;
   }
   if (role === 'Supervisor' && tabName === 'settings') {
     showToast('You do not have access to this tab.', 'error'); return;
   }
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(function (t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
   var tabEl = document.getElementById(tabName);
   if (tabEl) tabEl.classList.add('active');
   if (btnElement) btnElement.classList.add('active');
@@ -285,25 +288,38 @@ function loadTabVisibilitySettings() {
   }
 }
 
-// ===================== BADGES =====================
+// ===================== BADGES (MULTI-STAGE) =====================
 function updateAllBadges() {
-  var pending = getSnarfSubmissions().filter(function (s) { return (s.status || 'Pending') === 'Pending'; }).length;
+  var subs = getSnarfSubmissions();
+  var pending = subs.filter(function (s) { return (s.status || 'Pending') === 'Pending'; }).length;
+  var reviewed = subs.filter(function (s) { return s.status === 'Reviewed'; }).length;
+  var actionNeeded = pending + reviewed;
+
   var snarfBadge = document.getElementById('pendingBadge');
   if (snarfBadge) {
-    if (pending > 0) { snarfBadge.textContent = pending; snarfBadge.style.display = 'inline-block'; }
+    if (actionNeeded > 0) { snarfBadge.textContent = actionNeeded; snarfBadge.style.display = 'inline-block'; }
     else { snarfBadge.style.display = 'none'; }
   }
+
+  var role = getCurrentRole();
+  var pendingsCount = 0;
+  if (role === 'Admin') pendingsCount = pending + reviewed;
+  else if (role === 'Editor') pendingsCount = pending;
+  else if (role === 'Supervisor') pendingsCount = reviewed;
+  else pendingsCount = actionNeeded;
+
   var pendingsBadge = document.getElementById('pendingsBadge');
   if (pendingsBadge) {
-    if (pending > 0) { pendingsBadge.textContent = pending; pendingsBadge.style.display = 'inline-block'; }
+    if (pendingsCount > 0) { pendingsBadge.textContent = pendingsCount; pendingsBadge.style.display = 'inline-block'; }
     else { pendingsBadge.style.display = 'none'; }
   }
 }
 
-// ===================== DASHBOARD STATS =====================
+// ===================== DASHBOARD STATS (MULTI-STAGE) =====================
 function updateDashboardStats() {
   var subs = getSnarfSubmissions();
   var pending = subs.filter(function (s) { return (s.status || 'Pending') === 'Pending'; }).length;
+  var reviewed = subs.filter(function (s) { return s.status === 'Reviewed'; }).length;
   var approved = subs.filter(function (s) { return s.status === 'Approved'; }).length;
   var rejected = subs.filter(function (s) { return s.status === 'Rejected'; }).length;
   var rate = subs.length > 0 ? Math.round((approved / subs.length) * 100) : 0;
@@ -311,6 +327,7 @@ function updateDashboardStats() {
   el = document.getElementById('statTotalUsers'); if (el) el.textContent = users.length;
   el = document.getElementById('statTotalSubmissions'); if (el) el.textContent = subs.length;
   el = document.getElementById('statPending'); if (el) el.textContent = pending;
+  el = document.getElementById('statReviewed'); if (el) el.textContent = reviewed;
   el = document.getElementById('statApproved'); if (el) el.textContent = approved;
   el = document.getElementById('statRejected'); if (el) el.textContent = rejected;
   el = document.getElementById('statApprovalRate'); if (el) el.textContent = rate + '%';
@@ -351,17 +368,19 @@ function initializeSnarfForm() {
   updateSnarfSummary();
 }
 
+// ===================== SNARF SUMMARY (MULTI-STAGE) =====================
 function updateSnarfSummary() {
   var all = getSnarfSubmissions();
   var el;
   el = document.getElementById('summaryTotal'); if (el) el.textContent = all.length;
   el = document.getElementById('summaryPending'); if (el) el.textContent = all.filter(function (s) { return (s.status || 'Pending') === 'Pending'; }).length;
+  el = document.getElementById('summaryReviewed'); if (el) el.textContent = all.filter(function (s) { return s.status === 'Reviewed'; }).length;
   el = document.getElementById('summaryApproved'); if (el) el.textContent = all.filter(function (s) { return s.status === 'Approved'; }).length;
   el = document.getElementById('summaryRejected'); if (el) el.textContent = all.filter(function (s) { return s.status === 'Rejected'; }).length;
   updateAllBadges();
 }
 
-// ===================== MAIN FIX: filterSnarfTable =====================
+// ===================== FILTER SNARF TABLE =====================
 function filterSnarfTable() {
   var searchEl = document.getElementById("snarfSearchInput");
   var filterEl = document.getElementById("snarfStatusFilter");
@@ -369,32 +388,23 @@ function filterSnarfTable() {
   var statusFilter = filterEl ? filterEl.value : 'all';
   var results = getSnarfSubmissions();
 
-  console.log('filterSnarfTable called. Role:', getCurrentRole(), 'Total submissions:', results.length);
-
   var currentUser = getCurrentUser();
 
-  // SUBMITTER: show only their own submissions
   if (currentUser.role === 'Submitter') {
     var userEmail = (currentUser.email || '').toLowerCase().trim();
     var userName = currentUser.name.toLowerCase().trim();
     var userNameParts = userName.split(/\s+/);
 
     results = results.filter(function (r) {
-      // Match by email first (best)
       if (r.submittedByEmail && userEmail) {
         return r.submittedByEmail.toLowerCase().trim() === userEmail;
       }
-
-      // Fallback: flexible name matching
       var fn = (r.firstName || '').toLowerCase().trim();
       var ln = (r.lastName || '').toLowerCase().trim();
       var full1 = fn + ' ' + ln;
       var full2 = ln + ' ' + fn;
       var full3 = ln + ', ' + fn;
-
       if (full1 === userName || full2 === userName || full3 === userName) return true;
-
-      // Partial match
       if (userNameParts.length >= 2) {
         var allMatch = true;
         for (var p = 0; p < userNameParts.length; p++) {
@@ -404,37 +414,27 @@ function filterSnarfTable() {
       }
       return false;
     });
-
-    console.log('Submitter filter applied. Matched:', results.length);
   }
 
-  // VIEWER: NO filtering — sees ALL submissions read-only
-  if (currentUser.role === 'Viewer') {
-    console.log('Viewer: showing all', results.length, 'submissions');
-  }
-
-  // Status filter
   if (statusFilter !== "all") {
     results = results.filter(function (r) { return (r.status || "Pending") === statusFilter; });
   }
 
-  // Search filter
   if (searchTerm) {
     results = results.filter(function (r) {
-      return [r.formId, r.lastName, r.firstName, r.mi, r.office, r.telephone, r.date, r.purpose, r.description, r.period, r.fromDate, r.toDate, r.status || "Pending", r.actionedBy || ""].join(" ").toLowerCase().indexOf(searchTerm) !== -1;
+      return [r.formId, r.lastName, r.firstName, r.mi, r.office, r.telephone, r.date, r.purpose, r.description, r.period, r.fromDate, r.toDate, r.status || "Pending", r.actionedBy || "", r.reviewedBy || ""].join(" ").toLowerCase().indexOf(searchTerm) !== -1;
     });
   }
 
   snarfFilteredResults = results.slice().reverse();
   snarfCurrentPage = 1;
-  console.log('Final filtered results:', snarfFilteredResults.length);
   renderSnarfPage();
 }
 
 // ===================== RENDER SNARF TABLE =====================
 function renderSnarfPage() {
   var tbody = document.getElementById("snarfResultsBody");
-  if (!tbody) { console.error('snarfResultsBody not found!'); return; }
+  if (!tbody) return;
   tbody.innerHTML = "";
 
   var sa = document.getElementById('selectAllCheckbox');
@@ -478,11 +478,9 @@ function addFormResultToTable(formData) {
   row.setAttribute("data-form-id", formData.formId);
   var status = formData.status || "Pending";
   var role = getCurrentRole();
-
   var cells = '';
 
   if (role === 'Viewer' || role === 'Submitter') {
-    // NO checkbox — read-only
     cells =
       '<td><strong>' + formData.formId + '</strong></td>' +
       '<td>' + formData.lastName + '</td>' +
@@ -498,7 +496,6 @@ function addFormResultToTable(formData) {
       '<td><span class="status-badge status-' + status.toLowerCase() + '">' + status + '</span></td>' +
       '<td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
   } else {
-    // Admin/Editor/Supervisor — with checkbox
     cells =
       '<td><input type="checkbox" class="row-checkbox" value="' + formData.formId + '" onclick="onRowCheckboxChange()" /></td>' +
       '<td><strong>' + formData.formId + '</strong></td>' +
@@ -520,14 +517,25 @@ function addFormResultToTable(formData) {
   tbody.appendChild(row);
 }
 
+// ===================== GENERATE APPROVED ID (INCREMENTAL) =====================
 function generateApprovedId(originalId) {
   var year = new Date().getFullYear();
-  var match = originalId.match(/(\d{5})$/);
-  if (match) return 'SNARF-' + year + '-' + match[1];
-  return 'SNARF-' + year + '-' + originalId.replace('SNARF-', '');
+  var subs = getSnarfSubmissions();
+  var maxNum = 0;
+  subs.forEach(function (s) {
+    if (s.status === 'Approved' && s.formId) {
+      var match = s.formId.match(/SNARF-\d{4}-(\d{5})$/);
+      if (match) {
+        var num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+  });
+  var nextNum = maxNum + 1;
+  return 'SNARF-' + year + '-' + nextNum.toString().padStart(5, '0');
 }
 
-// ===================== VIEW DETAIL MODAL =====================
+// ===================== VIEW DETAIL MODAL (MULTI-STAGE) =====================
 var currentDetailFormId = null;
 
 function viewSnarfDetail(formId) {
@@ -538,9 +546,7 @@ function viewSnarfDetail(formId) {
   var isActioned = (status === 'Approved' || status === 'Rejected');
   var role = getCurrentRole();
 
-  // Viewer & Submitter: NO edit, NO approve/reject
   var canEditConduct = (role === 'Admin' || role === 'Editor') && status !== 'Approved';
-  var canApproveReject = (role === 'Admin' || role === 'Editor' || role === 'Supervisor') && !isActioned;
 
   var fields = [
     { label: 'Form ID', value: '<strong>' + data.formId + '</strong>' },
@@ -576,7 +582,6 @@ function viewSnarfDetail(formId) {
       '<div class="conduct-check-item"><input type="checkbox" class="conduct-checkbox" id="editAsRequested" ' + (asRequested ? 'checked' : '') + ' /> As Requested</div>' +
       '</div></div>';
   } else {
-    // READ-ONLY for Viewer, Submitter, Supervisor
     var ci = function (v) { return v ? '<span class="check-icon checked">✔</span>' : '<span class="check-icon unchecked">—</span>'; };
     html += '<div class="conduct-section"><h4>📋 Type of Conduct</h4><div class="conduct-checkboxes">' +
       '<div class="conduct-check-item">' + ci(initialConduct) + ' Initial Conduct</div>' +
@@ -628,7 +633,6 @@ function viewSnarfDetail(formId) {
       '<td><input type="date" class="conduct-date-input" id="edit4thWarningsDate" value="' + w4d + '" /></td></tr>' +
       '</tbody></table></div>';
   } else {
-    // READ-ONLY table
     html += '<div class="conduct-section" style="margin-top:10px; border-left-color:#f59e0b;">' +
       '<h4>🔁 Subsequent Conducts</h4>' +
       '<table class="subsequent-table">' + tHead + '<tbody>' +
@@ -638,29 +642,72 @@ function viewSnarfDetail(formId) {
       '</tbody></table></div>';
   }
 
-  // Actioned By
-  if (isActioned && data.actionedBy) {
+  // ===== STAGE HISTORY =====
+  if (data.stageHistory && data.stageHistory.length > 0) {
+    html += '<div class="conduct-section" style="border-left-color:#3b82f6;">';
+    html += '<h4>📜 Approval History</h4>';
+    for (var sh = 0; sh < data.stageHistory.length; sh++) {
+      var stage = data.stageHistory[sh];
+      var stageIcon = stage.to === 'Reviewed' ? '🔵' : stage.to === 'Approved' ? '✅' : '❌';
+      html += '<div class="detail-row" style="border:none;padding:5px 0;">';
+      html += '<div class="detail-label">' + stageIcon + ' ' + stage.from + ' → ' + stage.to + '</div>';
+      html += '<div class="detail-value"><strong>' + stage.by + '</strong> (' + stage.role + ') — ' + formatActionedAt(stage.at) + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Actioned By section
+  if (status === 'Reviewed' && data.reviewedBy) {
+    html += '<div class="detail-actioned-section reviewed-section"><div style="font-weight:bold;font-size:15px;margin-bottom:8px;">🔵 Reviewed (Stage 1)</div>' +
+      '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Reviewed By:</div><div class="detail-value"><strong>' + data.reviewedBy + '</strong></div></div>' +
+      '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Role:</div><div class="detail-value">' + (data.reviewedByRole || 'N/A') + '</div></div>' +
+      '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Date/Time:</div><div class="detail-value">' + formatActionedAt(data.reviewedAt) + '</div></div>' +
+      '<div style="color:#1e40af;font-size:13px;margin-top:8px;">⏳ Awaiting Supervisor approval (Stage 2)</div></div>';
+  } else if (isActioned && data.actionedBy) {
     var sc = status === 'Rejected' ? 'rejected' : '';
-    var al = status === 'Approved' ? '✅ Approved' : '❌ Rejected';
+    var al = status === 'Approved' ? '✅ Approved (Final)' : '❌ Rejected';
     html += '<div class="detail-actioned-section ' + sc + '"><div style="font-weight:bold;font-size:15px;margin-bottom:8px;">' + al + '</div>' +
       '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Actioned By:</div><div class="detail-value"><strong>' + data.actionedBy + '</strong></div></div>' +
       '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Role:</div><div class="detail-value">' + (data.actionedByRole || 'N/A') + '</div></div>' +
       '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Date/Time:</div><div class="detail-value">' + formatActionedAt(data.actionedAt) + '</div></div></div>';
-  } else if (!isActioned) {
+  } else if (!isActioned && status !== 'Reviewed') {
     html += '<div class="detail-actioned-section pending-section"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">⏳ Pending Review</div><div style="color:#92400e;font-size:13px;">This submission has not been actioned yet.</div></div>';
   }
 
   var modalBody = document.getElementById('detailModalBody');
   if (modalBody) modalBody.innerHTML = html;
 
-  // Action bar — Viewer & Submitter get ONLY Close
+  // ===== MULTI-STAGE ACTION BAR =====
   var actionBarHtml = '';
+
   if (canEditConduct) actionBarHtml += '<button class="save-conduct-btn" onclick="saveConductFromModal()">💾 Save</button>';
-  if (canApproveReject) {
+
+  // EDITOR: Review or Reject PENDING items
+  if (role === 'Editor' && status === 'Pending') {
+    actionBarHtml += '<button class="detail-approve-btn" style="background-color:#3b82f6;" onclick="reviewFromModal()">🔵 Review</button>';
+    actionBarHtml += '<button class="detail-reject-btn" onclick="rejectFromModal()">✘ Reject</button>';
+  }
+
+  // SUPERVISOR: Approve or Reject REVIEWED items
+  if (role === 'Supervisor' && status === 'Reviewed') {
     actionBarHtml += '<button class="detail-approve-btn" onclick="approveFromModal()">✔ Approve</button>';
     actionBarHtml += '<button class="detail-reject-btn" onclick="rejectFromModal()">✘ Reject</button>';
   }
-  if (role === 'Admin') actionBarHtml += '<button class="detail-delete-btn" onclick="deleteFromModal()">🗑 Delete</button>';
+
+  // ADMIN: everything at any stage
+  if (role === 'Admin') {
+    if (status === 'Pending') {
+      actionBarHtml += '<button class="detail-approve-btn" style="background-color:#3b82f6;" onclick="reviewFromModal()">🔵 Review</button>';
+      actionBarHtml += '<button class="detail-approve-btn" onclick="approveFromModal()">✔ Approve</button>';
+      actionBarHtml += '<button class="detail-reject-btn" onclick="rejectFromModal()">✘ Reject</button>';
+    } else if (status === 'Reviewed') {
+      actionBarHtml += '<button class="detail-approve-btn" onclick="approveFromModal()">✔ Approve</button>';
+      actionBarHtml += '<button class="detail-reject-btn" onclick="rejectFromModal()">✘ Reject</button>';
+    }
+    actionBarHtml += '<button class="detail-delete-btn" onclick="deleteFromModal()">🗑 Delete</button>';
+  }
+
   actionBarHtml += '<button class="detail-close-btn" onclick="closeDetailModal()">Close</button>';
 
   var actionBar = document.getElementById('detailActionBar');
@@ -678,6 +725,7 @@ function closeDetailModal() {
 
 function approveFromModal() { if (!currentDetailFormId) return; updateSnarfStatus(currentDetailFormId, 'Approved'); closeDetailModal(); }
 function rejectFromModal() { if (!currentDetailFormId) return; updateSnarfStatus(currentDetailFormId, 'Rejected'); closeDetailModal(); }
+function reviewFromModal() { if (!currentDetailFormId) return; updateSnarfStatus(currentDetailFormId, 'Reviewed'); closeDetailModal(); }
 function deleteFromModal() { if (!currentDetailFormId) return; deleteSnarfSubmission(currentDetailFormId); closeDetailModal(); }
 
 // ===================== SAVE CONDUCT DATA =====================
@@ -726,52 +774,123 @@ function saveConductFromModal() {
   showToast('Conduct data saved for ' + currentDetailFormId + '.', 'success');
 }
 
-// ===================== UPDATE STATUS =====================
+// ===================== UPDATE STATUS (MULTI-STAGE) =====================
 function updateSnarfStatus(formId, newStatus) {
   var cu = getCurrentUser();
-  if (cu.role !== 'Admin' && cu.role !== 'Editor' && cu.role !== 'Supervisor') {
+  var role = cu.role;
+  if (role !== 'Admin' && role !== 'Editor' && role !== 'Supervisor') {
     showToast('You do not have permission.', 'error'); return;
   }
-  if (!confirm('Mark submission ' + formId + ' as "' + newStatus + '"?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
   var subs = getSnarfSubmissions();
   var i = -1;
   for (var x = 0; x < subs.length; x++) { if (subs[x].formId === formId) { i = x; break; } }
-  if (i !== -1) {
-    subs[i].status = newStatus;
-    subs[i].actionedBy = cu.name;
-    subs[i].actionedByRole = cu.role;
-    subs[i].actionedAt = new Date().toISOString();
-    if (newStatus === 'Approved') { subs[i].originalFormId = subs[i].formId; subs[i].formId = generateApprovedId(subs[i].formId); }
-    saveSnarfSubmissions(subs); refreshAll();
-    var did = newStatus === 'Approved' ? subs[i].formId : formId;
-    showToast(did + ' ' + newStatus.toLowerCase() + ' by ' + cu.name + '.', newStatus === 'Approved' ? 'success' : 'warning');
+  if (i === -1) return;
+
+  var currentStatus = subs[i].status || 'Pending';
+
+  // MULTI-STAGE VALIDATION
+  if (role === 'Editor') {
+    if (currentStatus !== 'Pending') { showToast('Editors can only review Pending submissions.', 'error'); return; }
+    if (newStatus === 'Approved') newStatus = 'Reviewed';
   }
+  if (role === 'Supervisor') {
+    if (currentStatus !== 'Reviewed') { showToast('Supervisors can only approve/reject Reviewed submissions.', 'error'); return; }
+  }
+
+  if (!confirm('Mark submission ' + formId + ' as "' + newStatus + '"?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
+
+  subs[i].status = newStatus;
+  subs[i].actionedBy = cu.name;
+  subs[i].actionedByRole = cu.role;
+  subs[i].actionedAt = new Date().toISOString();
+
+  if (!subs[i].stageHistory) subs[i].stageHistory = [];
+  subs[i].stageHistory.push({ from: currentStatus, to: newStatus, by: cu.name, role: cu.role, at: new Date().toISOString() });
+
+  if (newStatus === 'Reviewed') {
+    subs[i].reviewedBy = cu.name;
+    subs[i].reviewedByRole = cu.role;
+    subs[i].reviewedAt = new Date().toISOString();
+  }
+
+  if (newStatus === 'Approved') {
+    subs[i].originalFormId = subs[i].formId;
+    subs[i].formId = generateApprovedId(subs[i].formId);
+  }
+
+  saveSnarfSubmissions(subs); refreshAll();
+  var did = newStatus === 'Approved' ? subs[i].formId : formId;
+  var toastType = newStatus === 'Approved' ? 'success' : newStatus === 'Reviewed' ? 'info' : 'warning';
+  showToast(did + ' ' + newStatus.toLowerCase() + ' by ' + cu.name + '.', toastType);
 }
 
-// ===================== BULK ACTION =====================
+// ===================== BULK ACTION (MULTI-STAGE) =====================
 function bulkAction(action) {
   var ids = getSelectedFormIds();
   if (ids.length === 0) { showToast('No submissions selected.', 'warning'); return; }
   var cu = getCurrentUser();
-  if (action === 'Delete' && cu.role !== 'Admin') { showToast('Only admins can delete.', 'error'); return; }
-  if (action !== 'Delete' && cu.role !== 'Admin' && cu.role !== 'Editor' && cu.role !== 'Supervisor') {
+  var role = cu.role;
+
+  if (action === 'Delete' && role !== 'Admin') { showToast('Only admins can delete.', 'error'); return; }
+  if (action !== 'Delete' && role !== 'Admin' && role !== 'Editor' && role !== 'Supervisor') {
     showToast('No permission.', 'error'); return;
   }
-  var label = action === 'Delete' ? 'delete' : action.toLowerCase();
-  if (!confirm(label + ' ' + ids.length + ' submission(s)?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
+
   var subs = getSnarfSubmissions();
+
   if (action === 'Delete') {
+    if (!confirm('Delete ' + ids.length + ' submission(s)?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
     subs = subs.filter(function (s) { return ids.indexOf(s.formId) === -1; });
     showToast(ids.length + ' submission(s) deleted.', 'error');
   } else {
+    var processLabel = action;
+    if (role === 'Editor' && action === 'Approved') processLabel = 'Reviewed';
+    var label = processLabel.toLowerCase();
+    if (!confirm(label + ' ' + ids.length + ' submission(s)?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
+
+    var validCount = 0;
     subs.forEach(function (s) {
-      if (ids.indexOf(s.formId) !== -1 && s.status !== 'Approved' && s.status !== 'Rejected') {
-        s.status = action; s.actionedBy = cu.name; s.actionedByRole = cu.role; s.actionedAt = new Date().toISOString();
-        if (action === 'Approved') { s.originalFormId = s.formId; s.formId = generateApprovedId(s.formId); }
+      if (ids.indexOf(s.formId) === -1) return;
+      var currentStatus = s.status || 'Pending';
+      var newStatus = null;
+
+      if (role === 'Editor' && currentStatus === 'Pending') {
+        newStatus = (action === 'Approved') ? 'Reviewed' : 'Rejected';
+      } else if (role === 'Supervisor' && currentStatus === 'Reviewed') {
+        newStatus = action;
+      } else if (role === 'Admin') {
+        if (currentStatus === 'Pending' && action === 'Approved') newStatus = 'Reviewed';
+        else if (currentStatus === 'Reviewed' && action === 'Approved') newStatus = 'Approved';
+        else if (action === 'Rejected' && (currentStatus === 'Pending' || currentStatus === 'Reviewed')) newStatus = 'Rejected';
+      }
+
+      if (newStatus) {
+        if (!s.stageHistory) s.stageHistory = [];
+        s.stageHistory.push({ from: currentStatus, to: newStatus, by: cu.name, role: cu.role, at: new Date().toISOString() });
+
+        s.status = newStatus;
+        s.actionedBy = cu.name;
+        s.actionedByRole = cu.role;
+        s.actionedAt = new Date().toISOString();
+
+        if (newStatus === 'Reviewed') {
+          s.reviewedBy = cu.name;
+          s.reviewedByRole = cu.role;
+          s.reviewedAt = new Date().toISOString();
+        }
+
+        if (newStatus === 'Approved') {
+          s.originalFormId = s.formId;
+          s.formId = generateApprovedId(s.formId);
+        }
+
+        validCount++;
       }
     });
-    showToast(ids.length + ' submission(s) ' + label + ' by ' + cu.name + '.', 'success');
+
+    showToast(validCount + ' submission(s) processed by ' + cu.name + '.', 'success');
   }
+
   saveSnarfSubmissions(subs); refreshAll();
 }
 
@@ -845,10 +964,10 @@ function updateBulkButtons() {
 function exportSnarfToExcel() {
   var subs = getSnarfSubmissions();
   if (subs.length === 0) { showToast('No submissions to export.', 'warning'); return; }
-  var headers = ["Form ID", "Original ID", "Last Name", "First Name", "M.I.", "Office/Division", "Telephone", "Date", "Purpose", "Description", "Period", "From Date", "To Date", "Status", "Initial Conduct", "Regular Conduct", "As Requested", "1st Test Count", "1st Test Date", "2nd Test Count", "2nd Test Date", "3rd Test Count", "3rd Test Date", "4th Test Count", "4th Test Date", "1st Holes", "1st Holes Date", "2nd Holes", "2nd Holes Date", "3rd Holes", "3rd Holes Date", "4th Holes", "4th Holes Date", "1st Warnings", "1st Warnings Date", "2nd Warnings", "2nd Warnings Date", "3rd Warnings", "3rd Warnings Date", "4th Warnings", "4th Warnings Date", "Actioned By", "Actioned By Role", "Actioned At"];
+  var headers = ["Form ID", "Original ID", "Last Name", "First Name", "M.I.", "Office/Division", "Telephone", "Date", "Purpose", "Description", "Period", "From Date", "To Date", "Status", "Reviewed By", "Reviewed At", "Initial Conduct", "Regular Conduct", "As Requested", "1st Test Count", "1st Test Date", "2nd Test Count", "2nd Test Date", "3rd Test Count", "3rd Test Date", "4th Test Count", "4th Test Date", "1st Holes", "1st Holes Date", "2nd Holes", "2nd Holes Date", "3rd Holes", "3rd Holes Date", "4th Holes", "4th Holes Date", "1st Warnings", "1st Warnings Date", "2nd Warnings", "2nd Warnings Date", "3rd Warnings", "3rd Warnings Date", "4th Warnings", "4th Warnings Date", "Actioned By", "Actioned By Role", "Actioned At"];
   var csv = headers.map(function (h) { return '"' + h + '"'; }).join(",") + "\n";
   subs.forEach(function (s) {
-    csv += [s.formId, s.originalFormId || s.formId, s.lastName, s.firstName, s.mi, s.office, s.telephone, s.date, s.purpose, s.description, s.period, s.fromDate || '', s.toDate || '', s.status || 'Pending', s.initialConduct ? 'Yes' : 'No', s.regularConduct ? 'Yes' : 'No', s.asRequested ? 'Yes' : 'No', s.firstTestCount || '', s.firstTestDate || '', s.secondTestCount || '', s.secondTestDate || '', s.thirdTestCount || '', s.thirdTestDate || '', s.fourthTestCount || '', s.fourthTestDate || '', s.firstHoles || '', s.firstHolesDate || '', s.secondHoles || '', s.secondHolesDate || '', s.thirdHoles || '', s.thirdHolesDate || '', s.fourthHoles || '', s.fourthHolesDate || '', s.firstWarnings || '', s.firstWarningsDate || '', s.secondWarnings || '', s.secondWarningsDate || '', s.thirdWarnings || '', s.thirdWarningsDate || '', s.fourthWarnings || '', s.fourthWarningsDate || '', s.actionedBy || '', s.actionedByRole || '', s.actionedAt ? formatActionedAt(s.actionedAt) : ''].map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(",") + "\n";
+    csv += [s.formId, s.originalFormId || s.formId, s.lastName, s.firstName, s.mi, s.office, s.telephone, s.date, s.purpose, s.description, s.period, s.fromDate || '', s.toDate || '', s.status || 'Pending', s.reviewedBy || '', s.reviewedAt ? formatActionedAt(s.reviewedAt) : '', s.initialConduct ? 'Yes' : 'No', s.regularConduct ? 'Yes' : 'No', s.asRequested ? 'Yes' : 'No', s.firstTestCount || '', s.firstTestDate || '', s.secondTestCount || '', s.secondTestDate || '', s.thirdTestCount || '', s.thirdTestDate || '', s.fourthTestCount || '', s.fourthTestDate || '', s.firstHoles || '', s.firstHolesDate || '', s.secondHoles || '', s.secondHolesDate || '', s.thirdHoles || '', s.thirdHolesDate || '', s.fourthHoles || '', s.fourthHolesDate || '', s.firstWarnings || '', s.firstWarningsDate || '', s.secondWarnings || '', s.secondWarningsDate || '', s.thirdWarnings || '', s.thirdWarningsDate || '', s.fourthWarnings || '', s.fourthWarningsDate || '', s.actionedBy || '', s.actionedByRole || '', s.actionedAt ? formatActionedAt(s.actionedAt) : ''].map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(",") + "\n";
   });
   var blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   var link = document.createElement("a"); link.href = URL.createObjectURL(blob);
@@ -858,7 +977,7 @@ function exportSnarfToExcel() {
   showToast('Export downloaded successfully!', 'success');
 }
 
-// ===================== PENDINGS TAB =====================
+// ===================== PENDINGS TAB (MULTI-STAGE) =====================
 var pendingsCurrentPage = 1;
 var pendingsRowsPerPage = 10;
 var pendingsFiltered = [];
@@ -872,16 +991,26 @@ function initializePendings() {
 function filterPendingsTable() {
   var searchEl = document.getElementById("pendingsSearchInput");
   var searchTerm = searchEl ? searchEl.value.toLowerCase().trim() : '';
-  var results = getSnarfSubmissions().filter(function (s) { return (s.status || 'Pending') === 'Pending'; });
+  var role = getCurrentRole();
+
+  var results = getSnarfSubmissions().filter(function (s) {
+    var status = s.status || 'Pending';
+    if (role === 'Admin') return status === 'Pending' || status === 'Reviewed';
+    if (role === 'Editor') return status === 'Pending';
+    if (role === 'Supervisor') return status === 'Reviewed';
+    return status === 'Pending' || status === 'Reviewed';
+  });
+
   if (searchTerm) {
     results = results.filter(function (r) {
       return [r.formId, r.lastName, r.firstName, r.mi, r.office, r.telephone, r.date, r.purpose, r.description, r.period, r.fromDate, r.toDate].join(" ").toLowerCase().indexOf(searchTerm) !== -1;
     });
   }
+
   pendingsFiltered = results.slice().reverse();
   pendingsCurrentPage = 1; renderPendingsPage();
   var el = document.getElementById('pendingsTotalCount');
-  if (el) el.textContent = getSnarfSubmissions().filter(function (s) { return (s.status || 'Pending') === 'Pending'; }).length;
+  if (el) el.textContent = pendingsFiltered.length;
 }
 
 function renderPendingsPage() {
@@ -891,7 +1020,7 @@ function renderPendingsPage() {
   var sa = document.getElementById('pendingsSelectAll'); if (sa) sa.checked = false;
   updatePendingsBulkButtons();
   if (pendingsFiltered.length === 0) {
-    tbody.innerHTML = '<tr class="no-results-row"><td colspan="13">🎉 No pending submissions! All caught up.</td></tr>';
+    tbody.innerHTML = '<tr class="no-results-row"><td colspan="14">🎉 No pending submissions! All caught up.</td></tr>';
     var pag = document.getElementById('pendingsPagination'); if (pag) pag.innerHTML = '';
     return;
   }
@@ -906,8 +1035,9 @@ function addPendingsRow(formData) {
   var tbody = document.getElementById("pendingsResultsBody");
   if (!tbody) return;
   var row = document.createElement("tr");
+  var status = formData.status || 'Pending';
   row.setAttribute("data-form-id", formData.formId);
-  row.innerHTML = '<td><input type="checkbox" class="pendings-checkbox" value="' + formData.formId + '" onclick="onPendingsCheckboxChange()" /></td><td><strong>' + formData.formId + '</strong></td><td>' + formData.lastName + '</td><td>' + formData.firstName + '</td><td>' + formData.mi + '</td><td>' + formData.office + '</td><td>' + formData.telephone + '</td><td>' + formData.date + '</td><td title="' + formData.purpose + '">' + formData.purpose + '</td><td>' + formData.period + '</td><td>' + (formData.fromDate || '') + '</td><td>' + (formData.toDate || '') + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
+  row.innerHTML = '<td><input type="checkbox" class="pendings-checkbox" value="' + formData.formId + '" onclick="onPendingsCheckboxChange()" /></td><td><strong>' + formData.formId + '</strong></td><td>' + formData.lastName + '</td><td>' + formData.firstName + '</td><td>' + formData.mi + '</td><td>' + formData.office + '</td><td>' + formData.telephone + '</td><td>' + formData.date + '</td><td title="' + formData.purpose + '">' + formData.purpose + '</td><td>' + formData.period + '</td><td>' + (formData.fromDate || '') + '</td><td>' + (formData.toDate || '') + '</td><td><span class="status-badge status-' + status.toLowerCase() + '">' + status + '</span></td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
   tbody.appendChild(row);
 }
 
@@ -937,22 +1067,63 @@ function updatePendingsBulkButtons() {
   var br = document.getElementById('pendingsBulkRejectBtn'); if (br) br.disabled = !h;
 }
 
+// ===================== PENDINGS BULK ACTION (MULTI-STAGE) =====================
 function pendingsBulkAction(action) {
   var ids = getPendingsSelectedIds();
   if (ids.length === 0) { showToast('No submissions selected.', 'warning'); return; }
   var cu = getCurrentUser();
-  if (cu.role !== 'Admin' && cu.role !== 'Editor' && cu.role !== 'Supervisor') { showToast('No permission.', 'error'); return; }
-  var label = action.toLowerCase();
+  var role = cu.role;
+  if (role !== 'Admin' && role !== 'Editor' && role !== 'Supervisor') { showToast('No permission.', 'error'); return; }
+
+  var processLabel = action;
+  if (role === 'Editor' && action === 'Approved') processLabel = 'Reviewed';
+  var label = processLabel.toLowerCase();
   if (!confirm(label + ' ' + ids.length + ' submission(s)?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
+
   var subs = getSnarfSubmissions();
+  var validCount = 0;
+
   subs.forEach(function (s) {
-    if (ids.indexOf(s.formId) !== -1 && (s.status || 'Pending') === 'Pending') {
-      s.status = action; s.actionedBy = cu.name; s.actionedByRole = cu.role; s.actionedAt = new Date().toISOString();
-      if (action === 'Approved') { s.originalFormId = s.formId; s.formId = generateApprovedId(s.formId); }
+    if (ids.indexOf(s.formId) === -1) return;
+    var currentStatus = s.status || 'Pending';
+    var newStatus = null;
+
+    if (role === 'Editor' && currentStatus === 'Pending') {
+      newStatus = (action === 'Approved') ? 'Reviewed' : 'Rejected';
+    } else if (role === 'Supervisor' && currentStatus === 'Reviewed') {
+      newStatus = action;
+    } else if (role === 'Admin') {
+      if (currentStatus === 'Pending' && action === 'Approved') newStatus = 'Reviewed';
+      else if (currentStatus === 'Reviewed' && action === 'Approved') newStatus = 'Approved';
+      else if (action === 'Rejected' && (currentStatus === 'Pending' || currentStatus === 'Reviewed')) newStatus = 'Rejected';
+    }
+
+    if (newStatus) {
+      if (!s.stageHistory) s.stageHistory = [];
+      s.stageHistory.push({ from: currentStatus, to: newStatus, by: cu.name, role: cu.role, at: new Date().toISOString() });
+
+      s.status = newStatus;
+      s.actionedBy = cu.name;
+      s.actionedByRole = cu.role;
+      s.actionedAt = new Date().toISOString();
+
+      if (newStatus === 'Reviewed') {
+        s.reviewedBy = cu.name;
+        s.reviewedByRole = cu.role;
+        s.reviewedAt = new Date().toISOString();
+      }
+
+      if (newStatus === 'Approved') {
+        s.originalFormId = s.formId;
+        s.formId = generateApprovedId(s.formId);
+      }
+
+      validCount++;
     }
   });
+
   saveSnarfSubmissions(subs);
-  showToast(ids.length + ' submission(s) ' + label + ' by ' + cu.name + '.', 'success');
+  showToast(validCount + ' submission(s) processed by ' + cu.name + '.', 'success');
   refreshAll();
 }
 
