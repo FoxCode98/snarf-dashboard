@@ -1,0 +1,199 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="navbar">
+    <h1>Dashboard</h1>
+    <div class="navbar-right">
+      <span class="user-info-badge" id="navUserInfo"></span>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('home', this)">Home</button>
+      <button class="tab-btn" onclick="switchTab('pendings', this)" id="pendingsTabBtn">
+        Pendings <span class="tab-badge" id="pendingsBadge" style="display:none;">0</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('snarf-form', this)" id="snarfTabBtn">
+        SNARF Form <span class="tab-badge" id="pendingBadge" style="display:none;">0</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('analytics', this)" id="analyticsTabBtn">Analytics</button>
+      <button class="tab-btn" onclick="switchTab('settings', this)" id="settingsTabBtn">Settings</button>
+    </div>
+
+    <!-- HOME -->
+    <div id="home" class="tab-content active">
+      <div class="welcome-section">
+        <h2 id="welcomeMessage">Welcome! 👋</h2>
+        <p>You've successfully logged in. Here's your dashboard overview.</p>
+      </div>
+      <div class="cards-grid">
+        <div class="card"><div class="card-stat" id="statTotalUsers">0</div><h3>Total Users</h3><p>Registered users on the system</p></div>
+        <div class="card"><div class="card-stat" id="statTotalSubmissions">0</div><h3>SNARF Submissions</h3><p>Total form submissions received</p></div>
+        <div class="card"><div class="card-stat" id="statPending">0</div><h3>Pending</h3><p>Submissions awaiting review</p></div>
+        <div class="card"><div class="card-stat" id="statApproved">0</div><h3>Approved</h3><p>Approved submissions</p></div>
+        <div class="card"><div class="card-stat" id="statRejected">0</div><h3>Rejected</h3><p>Rejected submissions</p></div>
+        <div class="card"><div class="card-stat" id="statApprovalRate">0%</div><h3>Approval Rate</h3><p>Percentage of approved requests</p></div>
+      </div>
+    </div>
+
+    <!-- PENDINGS TAB -->
+    <div id="pendings" class="tab-content">
+      <div class="snarf-results">
+        <h2>⏳ Pending Submissions</h2>
+        <div class="snarf-summary">
+          <div class="summary-card summary-pending" style="flex:none; min-width:220px;">
+            <span class="summary-count" id="pendingsTotalCount">0</span>
+            <span class="summary-label">Awaiting Review</span>
+          </div>
+        </div>
+        <div class="snarf-toolbar">
+          <div class="snarf-toolbar-left">
+            <input type="text" class="snarf-search-input" id="pendingsSearchInput" placeholder="🔍 Search pending submissions..." oninput="filterPendingsTable()" />
+          </div>
+          <div class="snarf-toolbar-right">
+            <button class="snarf-bulk-btn snarf-bulk-approve" id="pendingsBulkApproveBtn" onclick="pendingsBulkAction('Approved')" disabled>✔ Bulk Approve</button>
+            <button class="snarf-bulk-btn snarf-bulk-reject" id="pendingsBulkRejectBtn" onclick="pendingsBulkAction('Rejected')" disabled>✘ Bulk Reject</button>
+          </div>
+        </div>
+        <div class="snarf-table-wrapper">
+          <table class="snarf-results-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="pendingsSelectAll" onclick="pendingsToggleSelectAll(this)" /></th>
+                <th>Form ID</th><th>Last Name</th><th>First Name</th><th>M.I.</th>
+                <th>Office/Division</th><th>Telephone</th><th>Date</th><th>Purpose</th>
+                <th>Period</th><th>From</th><th>To</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="pendingsResultsBody"></tbody>
+          </table>
+        </div>
+        <div class="snarf-pagination" id="pendingsPagination"></div>
+      </div>
+    </div>
+
+    <!-- SNARF FORM TAB -->
+    <div id="snarf-form" class="tab-content">
+      <div class="snarf-results">
+        <h2>📋 Form Submissions</h2>
+        <!-- FIXED: Generic text — JS will set the correct role name -->
+        <div class="viewer-notice" id="viewerNotice">ℹ️ You have <strong id="viewerNoticeRole">Viewer</strong> access. You can only view submissions.</div>
+        <div class="snarf-summary">
+          <div class="summary-card summary-total"><span class="summary-count" id="summaryTotal">0</span><span class="summary-label">Total</span></div>
+          <div class="summary-card summary-pending"><span class="summary-count" id="summaryPending">0</span><span class="summary-label">Pending</span></div>
+          <div class="summary-card summary-approved"><span class="summary-count" id="summaryApproved">0</span><span class="summary-label">Approved</span></div>
+          <div class="summary-card summary-rejected"><span class="summary-count" id="summaryRejected">0</span><span class="summary-label">Rejected</span></div>
+        </div>
+        <div class="snarf-toolbar">
+          <div class="snarf-toolbar-left">
+            <input type="text" class="snarf-search-input" id="snarfSearchInput" placeholder="🔍 Search by name, office, ID..." oninput="filterSnarfTable()" />
+            <select class="snarf-filter-select" id="snarfStatusFilter" onchange="filterSnarfTable()">
+              <option value="all">All Status</option><option value="Pending">Pending</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="snarf-toolbar-right" id="snarfToolbarRight">
+            <button class="snarf-bulk-btn snarf-bulk-approve" id="bulkApproveBtn" onclick="bulkAction('Approved')" disabled>✔ Bulk Approve</button>
+            <button class="snarf-bulk-btn snarf-bulk-reject" id="bulkRejectBtn" onclick="bulkAction('Rejected')" disabled>✘ Bulk Reject</button>
+            <button class="snarf-bulk-btn snarf-bulk-delete" id="bulkDeleteBtn" onclick="bulkAction('Delete')" disabled>🗑 Bulk Delete</button>
+            <button class="snarf-export-btn" onclick="exportSnarfToExcel()">📥 Export to Excel</button>
+          </div>
+        </div>
+        <div class="snarf-table-wrapper">
+          <table class="snarf-results-table">
+            <thead>
+              <tr>
+                <th id="thCheckboxCol"><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this)" /></th>
+                <th>Form ID</th><th>Last Name</th><th>First Name</th><th>M.I.</th>
+                <th>Office/Division</th><th>Telephone</th><th>Date</th><th>Purpose</th>
+                <th>Period</th><th>From</th><th>To</th><th>Status</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="snarfResultsBody"></tbody>
+          </table>
+        </div>
+        <div class="snarf-pagination" id="snarfPagination"></div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div id="analytics" class="tab-content">
+      <div class="welcome-section"><h2>Analytics 📊</h2><p>Detailed analytics and reports coming soon...</p></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="settings" class="tab-content">
+      <div class="settings-container">
+        <div class="settings-card" id="userMgmtCard">
+          <div class="settings-card-header">
+            <div><h3>👥 User Management</h3><p>Add, edit, or remove users from the system.</p></div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+              <span class="user-count-badge" id="userCountBadge">0 users</span>
+              <input type="text" class="user-search-input" id="userSearchInput" placeholder="🔍 Search users..." oninput="filterUsersTable()" />
+              <button class="add-user-btn" id="addUserBtn" onclick="openAddUserModal()">+ Add New User</button>
+            </div>
+          </div>
+          <div class="user-mgmt-table-wrapper">
+            <table class="user-mgmt-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+              <tbody id="userTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="settings-card">
+          <h3>⚙️ Tab Visibility</h3><p>Control which tabs are visible on the dashboard.</p>
+          <div class="setting-item"><div class="setting-info"><h4>SNARF Form Tab</h4><span>Show or hide the SNARF Form submissions tab</span></div><label class="toggle-switch"><input type="checkbox" id="toggleSnarfTab" checked onchange="toggleTabVisibility('snarf-form', this.checked)" /><span class="toggle-slider"></span></label></div>
+          <div class="setting-item"><div class="setting-info"><h4>Analytics Tab</h4><span>Show or hide the Analytics tab</span></div><label class="toggle-switch"><input type="checkbox" id="toggleAnalyticsTab" checked onchange="toggleTabVisibility('analytics', this.checked)" /><span class="toggle-slider"></span></label></div>
+        </div>
+        <div class="settings-card">
+          <h3>👤 Account</h3><p>Manage your account preferences.</p>
+          <div class="setting-item"><div class="setting-info"><h4>Profile Settings</h4><span>Update your name, email, and password</span></div><button style="padding:8px 16px; border:1px solid #ccc; border-radius:6px; background:white; cursor:pointer; font-weight:bold; color:#4f46e5;" onmouseover="this.style.background='#eef2ff'" onmouseout="this.style.background='white'">Edit</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Modal -->
+  <div id="userModal" class="modal">
+    <div class="modal-content">
+      <h3 id="modalTitle">Add New User</h3>
+      <div class="form-group"><label>Full Name</label><input type="text" id="userName" placeholder="Enter full name" /></div>
+      <div class="form-group"><label>Email</label><input type="email" id="userEmail" placeholder="Enter email address" /></div>
+      <div class="form-group"><label>Password</label><input type="password" id="userPassword" placeholder="Enter password" /></div>
+      <div class="form-group"><label>Role</label>
+        <select id="userRole">
+          <option value="Admin">Admin</option>
+          <option value="Editor">Editor</option>
+          <option value="Supervisor">Supervisor</option>
+          <option value="Submitter">Submitter</option>
+          <option value="Viewer">Viewer</option>
+        </select>
+      </div>
+      <div class="modal-buttons"><button class="save-btn" onclick="saveUser()">Save</button><button class="cancel-btn" onclick="closeUserModal()">Cancel</button></div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="modal">
+    <div class="detail-modal-content">
+      <h3>📄 Submission Details</h3>
+      <div id="detailModalBody"></div>
+      <div class="detail-action-bar" id="detailActionBar"></div>
+    </div>
+  </div>
+
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
