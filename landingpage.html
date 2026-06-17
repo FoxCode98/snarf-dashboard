@@ -12,7 +12,7 @@
             margin:0;
             padding:0;
             box-sizing:border-box;
-            font-family: Arial, sans-serif;
+            font-family: 'Inter', Arial, sans-serif;
         }
 
         body{
@@ -173,7 +173,7 @@
         .track-modal{
             background:white;
             border-radius:14px;
-            width:700px;
+            width:750px;
             max-width:95vw;
             max-height:90vh;
             overflow-y:auto;
@@ -334,6 +334,8 @@
             justify-content:center;
             gap:0;
             margin:20px 0;
+            overflow-x:auto;
+            padding:5px 0;
         }
 
         .track-step{
@@ -341,7 +343,8 @@
             flex-direction:column;
             align-items:center;
             position:relative;
-            min-width:90px;
+            min-width:80px;
+            flex-shrink:0;
         }
 
         .track-step-circle{
@@ -385,13 +388,16 @@
             font-weight:600;
             color:#555;
             text-align:center;
+            max-width:80px;
+            word-wrap:break-word;
         }
 
         .track-step-connector{
-            width:60px;
+            width:40px;
             height:3px;
             background:#d1d5db;
             margin-bottom:20px;
+            flex-shrink:0;
         }
 
         .track-step-connector.done-line{
@@ -450,6 +456,66 @@
             color:#991b1b;
         }
 
+        .track-actioned-info.stage-info{
+            background:#eff6ff;
+            border-left:4px solid #3b82f6;
+            color:#1e40af;
+        }
+
+        /* Stage History Timeline */
+        .track-history{
+            margin-top:15px;
+            padding:12px 15px;
+            background:#f8fafc;
+            border-radius:8px;
+            border:1px solid #e2e8f0;
+        }
+
+        .track-history-title{
+            font-size:13px;
+            font-weight:700;
+            color:#1e3c72;
+            margin-bottom:8px;
+        }
+
+        .track-history-item{
+            font-size:12px;
+            color:#475569;
+            padding:4px 0;
+            border-bottom:1px solid #f1f5f9;
+        }
+
+        .track-history-item:last-child{
+            border-bottom:none;
+        }
+
+        .track-history-item strong{
+            color:#1e293b;
+        }
+
+        /* Rejection reason in tracker */
+        .track-reject-reason{
+            margin-top:10px;
+            padding:10px 14px;
+            background:#fef2f2;
+            border:1px solid #fecaca;
+            border-left:4px solid #ef4444;
+            border-radius:8px;
+            font-size:13px;
+            color:#991b1b;
+        }
+
+        .track-reject-category{
+            display:inline-block;
+            padding:2px 8px;
+            background:#fee2e2;
+            color:#dc2626;
+            border-radius:10px;
+            font-size:11px;
+            font-weight:600;
+            margin-bottom:4px;
+        }
+
         /* Close Button */
         .track-modal-footer{
             padding:0 30px 25px;
@@ -480,9 +546,10 @@
             .content-section{ padding:25px; }
             .track-modal{ width:95vw; }
             .track-detail-grid{ grid-template-columns:1fr; }
-            .track-progress{ flex-wrap:wrap; gap:5px; }
-            .track-step-connector{ width:30px; }
-            .track-step{ min-width:70px; }
+            .track-progress{ justify-content:flex-start; padding:5px 10px; }
+            .track-step{ min-width:65px; }
+            .track-step-connector{ width:25px; }
+            .track-step-label{ font-size:10px; max-width:65px; }
             .button-section{ flex-direction:column; align-items:center; }
         }
 
@@ -504,9 +571,7 @@
 
         <!-- Hero Section -->
         <div class="hero-section">
-
             <h1>SNARF Form</h1>
-
             <p>
                 Server Network Access Request Form (SNARF) is designed
                 to streamline requests for secure network access within
@@ -514,7 +579,6 @@
                 network access requests through a professional and
                 user-friendly system.
             </p>
-
         </div>
 
         <!-- Content Section -->
@@ -531,46 +595,24 @@
 
             <!-- Features -->
             <div class="features">
-
                 <div class="feature-card">
                     <h3>Secure Access</h3>
-                    <p>
-                        Ensure all network requests are documented
-                        and validated securely.
-                    </p>
+                    <p>Ensure all network requests are documented and validated securely.</p>
                 </div>
-
                 <div class="feature-card">
                     <h3>Easy Submission</h3>
-                    <p>
-                        Submit forms quickly using a clean and
-                        responsive interface.
-                    </p>
+                    <p>Submit forms quickly using a clean and responsive interface.</p>
                 </div>
-
                 <div class="feature-card">
                     <h3>Automated Validation</h3>
-                    <p>
-                        Prevent invalid requests with smart date
-                        restrictions and input validation.
-                    </p>
+                    <p>Prevent invalid requests with smart date restrictions and input validation.</p>
                 </div>
-
             </div>
 
             <!-- Buttons -->
             <div class="button-section">
-
-                <button class="start-btn"
-                    onclick="window.location.href='snarfform.html'">
-                    📝 Open SNARF Form
-                </button>
-
-                <button class="track-btn"
-                    onclick="openTrackModal()">
-                    🔍 Track My Submission
-                </button>
-
+                <button class="start-btn" onclick="window.location.href='snarfform.html'">📝 Open SNARF Form</button>
+                <button class="track-btn" onclick="openTrackModal()">🔍 Track My Submission</button>
             </div>
 
         </div>
@@ -617,46 +659,81 @@
     </div>
 
     <script>
-    // ===== TRACK MODAL LOGIC =====
+    // ===== WORKFLOW CONFIG (reads from dashboard's localStorage) =====
+    var TRACK_STAGE_COLORS = [
+        { bg: '#dbeafe', text: '#1e40af' },
+        { bg: '#ede9fe', text: '#5b21b6' },
+        { bg: '#ccfbf1', text: '#0f766e' },
+        { bg: '#fce7f3', text: '#9d174d' },
+        { bg: '#e0e7ff', text: '#3730a3' },
+        { bg: '#fef3c7', text: '#92400e' },
+        { bg: '#d1fae5', text: '#065f46' },
+        { bg: '#fed7aa', text: '#9a3412' }
+    ];
 
+    function getWorkflowConfig() {
+        var s = localStorage.getItem('workflowConfig');
+        if (s) {
+            var config = JSON.parse(s);
+            config.stages.sort(function(a, b) { return a.order - b.order; });
+            return config;
+        }
+        return {
+            stages: [
+                { id: 'stg-default-1', name: 'Review', role: 'Editor', completedStatus: 'Reviewed', order: 1 },
+                { id: 'stg-default-2', name: 'Approval', role: 'Supervisor', completedStatus: 'Approved', order: 2 }
+            ]
+        };
+    }
+
+    function getStageIndex(status) {
+        if (status === 'Pending') return -1;
+        if (status === 'Rejected') return -2;
+        var config = getWorkflowConfig();
+        for (var i = 0; i < config.stages.length; i++) {
+            if (config.stages[i].completedStatus === status) return i;
+        }
+        return -1;
+    }
+
+    // ===== TRACK MODAL LOGIC =====
     function openTrackModal() {
         document.getElementById('trackModalOverlay').classList.add('active');
         document.getElementById('trackSearchInput').value = '';
         document.getElementById('trackResults').innerHTML = '';
         document.getElementById('trackResults').classList.remove('visible');
         document.getElementById('trackNoResults').classList.remove('visible');
-        setTimeout(() => document.getElementById('trackSearchInput').focus(), 200);
+        setTimeout(function() { document.getElementById('trackSearchInput').focus(); }, 200);
     }
 
     function closeTrackModal() {
         document.getElementById('trackModalOverlay').classList.remove('active');
     }
 
-    // Close on backdrop click
     document.getElementById('trackModalOverlay').addEventListener('click', function(e) {
         if (e.target === this) closeTrackModal();
     });
 
     function getSubmissions() {
-        const s = localStorage.getItem('snarfFormSubmissions');
+        var s = localStorage.getItem('snarfFormSubmissions');
         return s ? JSON.parse(s) : [];
     }
 
     function searchSubmission() {
-        const query = document.getElementById('trackSearchInput').value.trim().toLowerCase();
+        var query = document.getElementById('trackSearchInput').value.trim().toLowerCase();
         if (!query) return;
 
-        const all = getSubmissions();
-        const results = all.filter(s => {
-            const formId = (s.formId || '').toLowerCase();
-            const origId = (s.originalFormId || '').toLowerCase();
-            const lastName = (s.lastName || '').toLowerCase();
-            const firstName = (s.firstName || '').toLowerCase();
-            return formId.includes(query) || origId.includes(query) || lastName.includes(query) || firstName.includes(query);
+        var all = getSubmissions();
+        var results = all.filter(function(s) {
+            var formId = (s.formId || '').toLowerCase();
+            var origId = (s.originalFormId || '').toLowerCase();
+            var lastName = (s.lastName || '').toLowerCase();
+            var firstName = (s.firstName || '').toLowerCase();
+            return formId.indexOf(query) !== -1 || origId.indexOf(query) !== -1 || lastName.indexOf(query) !== -1 || firstName.indexOf(query) !== -1;
         });
 
-        const container = document.getElementById('trackResults');
-        const noResults = document.getElementById('trackNoResults');
+        var container = document.getElementById('trackResults');
+        var noResults = document.getElementById('trackNoResults');
 
         if (results.length === 0) {
             container.innerHTML = '';
@@ -668,8 +745,7 @@
         noResults.classList.remove('visible');
         container.innerHTML = '';
 
-        // Sort newest first
-        results.reverse().forEach(sub => {
+        results.reverse().forEach(function(sub) {
             container.innerHTML += buildTrackCard(sub);
         });
 
@@ -677,132 +753,172 @@
     }
 
     function buildTrackCard(data) {
-        const status = data.status || 'Pending';
-        const statusClass = 'track-status-' + status.toLowerCase();
+        var status = data.status || 'Pending';
+        var config = getWorkflowConfig();
+        var stages = config.stages;
+        var currentStageIdx = getStageIndex(status);
+        var isRejected = (status === 'Rejected');
 
-        // Progress steps
-        let progressHtml = '';
+        // Find at which stage the rejection happened
+        var rejectedAtIdx = -1;
+        if (isRejected && data.stageHistory && data.stageHistory.length > 0) {
+            var lastEntry = data.stageHistory[data.stageHistory.length - 1];
+            if (lastEntry.to === 'Rejected') {
+                rejectedAtIdx = getStageIndex(lastEntry.from);
+                // If rejected from Pending, rejectedAtIdx = -1, meaning it was rejected before stage 0
+            }
+        }
+
+        // ===== STATUS BADGE =====
+        var badgeHtml = '';
         if (status === 'Pending') {
-            progressHtml = `
-                <div class="track-step">
-                    <div class="track-step-circle done">✓</div>
-                    <div class="track-step-label">Submitted</div>
-                </div>
-                <div class="track-step-connector done-line"></div>
-                <div class="track-step">
-                    <div class="track-step-circle active-step">⏳</div>
-                    <div class="track-step-label">Under Review</div>
-                </div>
-                <div class="track-step-connector"></div>
-                <div class="track-step">
-                    <div class="track-step-circle waiting">3</div>
-                    <div class="track-step-label">Decision</div>
-                </div>
-            `;
+            badgeHtml = '<span class="track-status-badge track-status-pending">Pending</span>';
         } else if (status === 'Approved') {
-            progressHtml = `
-                <div class="track-step">
-                    <div class="track-step-circle done">✓</div>
-                    <div class="track-step-label">Submitted</div>
-                </div>
-                <div class="track-step-connector done-line"></div>
-                <div class="track-step">
-                    <div class="track-step-circle done">✓</div>
-                    <div class="track-step-label">Reviewed</div>
-                </div>
-                <div class="track-step-connector done-line"></div>
-                <div class="track-step">
-                    <div class="track-step-circle done">✅</div>
-                    <div class="track-step-label">Approved</div>
-                </div>
-            `;
+            badgeHtml = '<span class="track-status-badge track-status-approved">Approved</span>';
         } else if (status === 'Rejected') {
-            progressHtml = `
-                <div class="track-step">
-                    <div class="track-step-circle done">✓</div>
-                    <div class="track-step-label">Submitted</div>
-                </div>
-                <div class="track-step-connector rejected-line"></div>
-                <div class="track-step">
-                    <div class="track-step-circle done">✓</div>
-                    <div class="track-step-label">Reviewed</div>
-                </div>
-                <div class="track-step-connector rejected-line"></div>
-                <div class="track-step">
-                    <div class="track-step-circle rejected-step">✘</div>
-                    <div class="track-step-label">Rejected</div>
-                </div>
-            `;
+            badgeHtml = '<span class="track-status-badge track-status-rejected">Rejected</span>';
+        } else {
+            // Intermediate status — use dynamic colour
+            var ci = currentStageIdx >= 0 ? currentStageIdx : 0;
+            var c = TRACK_STAGE_COLORS[ci % TRACK_STAGE_COLORS.length];
+            badgeHtml = '<span class="track-status-badge" style="background:' + c.bg + ';color:' + c.text + ';">' + status + '</span>';
         }
 
-        // Actioned info
-        let actionedHtml = '';
+        // ===== DYNAMIC PROGRESS STEPS =====
+        var progressHtml = '';
+
+        // Step 0: Submitted (always done)
+        progressHtml += '<div class="track-step">';
+        progressHtml += '<div class="track-step-circle done">✓</div>';
+        progressHtml += '<div class="track-step-label">Submitted</div>';
+        progressHtml += '</div>';
+
+        for (var i = 0; i < stages.length; i++) {
+            var stage = stages[i];
+            var isLast = (i === stages.length - 1);
+            var stageLabel = isLast ? 'Approved' : stage.completedStatus;
+            var stageDisplayName = stage.name || stageLabel;
+
+            // Connector before this step
+            var connectorClass = 'track-step-connector';
+
+            if (isRejected) {
+                // Everything up to the rejection point is done, then rejected
+                if (rejectedAtIdx >= i) {
+                    connectorClass += ' done-line';
+                } else if (rejectedAtIdx === i - 1 || (rejectedAtIdx === -1 && i === 0)) {
+                    connectorClass += ' rejected-line';
+                }
+            } else if (status === 'Approved') {
+                connectorClass += ' done-line';
+            } else if (currentStageIdx >= i) {
+                connectorClass += ' done-line';
+            }
+
+            progressHtml += '<div class="' + connectorClass + '"></div>';
+
+            // Step circle
+            progressHtml += '<div class="track-step">';
+
+            if (isRejected) {
+                if (i <= rejectedAtIdx) {
+                    // Stages completed before rejection
+                    progressHtml += '<div class="track-step-circle done">✓</div>';
+                } else if ((rejectedAtIdx === -1 && i === 0) || i === rejectedAtIdx + 1) {
+                    // The stage where rejection happened
+                    progressHtml += '<div class="track-step-circle rejected-step">✘</div>';
+                } else {
+                    progressHtml += '<div class="track-step-circle waiting">' + (i + 1) + '</div>';
+                }
+            } else if (status === 'Approved') {
+                if (isLast) {
+                    progressHtml += '<div class="track-step-circle done">✅</div>';
+                } else {
+                    progressHtml += '<div class="track-step-circle done">✓</div>';
+                }
+            } else if (currentStageIdx >= i) {
+                // Completed this stage
+                progressHtml += '<div class="track-step-circle done">✓</div>';
+            } else if ((status === 'Pending' && i === 0) || currentStageIdx === i - 1) {
+                // Currently at this stage (waiting)
+                progressHtml += '<div class="track-step-circle active-step">⏳</div>';
+            } else {
+                progressHtml += '<div class="track-step-circle waiting">' + (i + 1) + '</div>';
+            }
+
+            progressHtml += '<div class="track-step-label">' + stageDisplayName + '</div>';
+            progressHtml += '</div>';
+        }
+
+        // ===== DETAIL GRID =====
+        var detailHtml = '<div class="track-detail-grid">';
+        detailHtml += '<div class="track-detail-item"><div class="label">Full Name</div><div class="value">' + data.lastName + ', ' + data.firstName + ' ' + (data.mi || '') + '</div></div>';
+        detailHtml += '<div class="track-detail-item"><div class="label">Office / Division</div><div class="value">' + (data.office || 'N/A') + '</div></div>';
+        detailHtml += '<div class="track-detail-item"><div class="label">Date Submitted</div><div class="value">' + (data.date || 'N/A') + '</div></div>';
+        detailHtml += '<div class="track-detail-item"><div class="label">Telephone</div><div class="value">' + (data.telephone || 'N/A') + '</div></div>';
+        detailHtml += '<div class="track-detail-item track-detail-full"><div class="label">Purpose of Justification</div><div class="value">' + (data.purpose || 'N/A') + '</div></div>';
+        detailHtml += '<div class="track-detail-item"><div class="label">Period of Use</div><div class="value">' + (data.period || 'N/A') + '</div></div>';
+        detailHtml += '<div class="track-detail-item"><div class="label">Duration</div><div class="value">' + (data.fromDate || '—') + ' → ' + (data.toDate || '—') + '</div></div>';
+        if (data.originalFormId && data.originalFormId !== data.formId) {
+            detailHtml += '<div class="track-detail-item track-detail-full"><div class="label">Original Form ID</div><div class="value">' + data.originalFormId + '</div></div>';
+        }
+        detailHtml += '</div>';
+
+        // ===== STAGE HISTORY =====
+        var historyHtml = '';
+        if (data.stageHistory && data.stageHistory.length > 0) {
+            historyHtml += '<div class="track-history">';
+            historyHtml += '<div class="track-history-title">📜 Approval History</div>';
+            for (var h = 0; h < data.stageHistory.length; h++) {
+                var entry = data.stageHistory[h];
+                var icon = entry.to === 'Approved' ? '✅' : entry.to === 'Rejected' ? '❌' : '🔵';
+                historyHtml += '<div class="track-history-item">';
+                historyHtml += icon + ' ' + entry.from + ' → <strong>' + entry.to + '</strong> by <strong>' + entry.by + '</strong> (' + entry.role + ')';
+                if (entry.at) historyHtml += ' — ' + formatTrackDate(entry.at);
+                historyHtml += '</div>';
+            }
+            historyHtml += '</div>';
+        }
+
+        // ===== ACTIONED INFO =====
+        var actionedHtml = '';
         if (status === 'Approved' && data.actionedBy) {
-            actionedHtml = `
-                <div class="track-actioned-info approved-info">
-                    ✅ <strong>Approved</strong> by ${data.actionedBy} (${data.actionedByRole || 'N/A'})
-                    ${data.actionedAt ? ' on ' + formatTrackDate(data.actionedAt) : ''}
-                </div>
-            `;
+            actionedHtml = '<div class="track-actioned-info approved-info">✅ <strong>Approved</strong> by ' + data.actionedBy + ' (' + (data.actionedByRole || 'N/A') + ')' + (data.actionedAt ? ' on ' + formatTrackDate(data.actionedAt) : '') + '</div>';
         } else if (status === 'Rejected' && data.actionedBy) {
-            actionedHtml = `
-                <div class="track-actioned-info rejected-info">
-                    ❌ <strong>Rejected</strong> by ${data.actionedBy} (${data.actionedByRole || 'N/A'})
-                    ${data.actionedAt ? ' on ' + formatTrackDate(data.actionedAt) : ''}
-                </div>
-            `;
+            actionedHtml = '<div class="track-actioned-info rejected-info">❌ <strong>Rejected</strong> by ' + data.actionedBy + ' (' + (data.actionedByRole || 'N/A') + ')' + (data.actionedAt ? ' on ' + formatTrackDate(data.actionedAt) : '') + '</div>';
+            // Show rejection reason
+            if (data.rejectReason || data.rejectCategory) {
+                actionedHtml += '<div class="track-reject-reason">';
+                if (data.rejectCategory) actionedHtml += '<div class="track-reject-category">' + data.rejectCategory + '</div>';
+                actionedHtml += '<div>' + (data.rejectReason || 'No reason provided.') + '</div>';
+                actionedHtml += '</div>';
+            }
+        } else if (status !== 'Pending' && status !== 'Approved' && status !== 'Rejected') {
+            // Intermediate status
+            var nextIdx = currentStageIdx + 1;
+            var waitingRole = (nextIdx >= 0 && nextIdx < stages.length) ? stages[nextIdx].role : 'N/A';
+            var nextLabel = (nextIdx >= 0 && nextIdx < stages.length) ? (nextIdx === stages.length - 1 ? 'Approved' : stages[nextIdx].completedStatus) : '';
+            actionedHtml = '<div class="track-actioned-info stage-info">⏳ Currently <strong>' + status + '</strong>. Awaiting action from <strong>' + waitingRole + '</strong>' + (nextLabel ? ' → ' + nextLabel : '') + '</div>';
+        } else if (status === 'Pending') {
+            var firstRole = stages.length > 0 ? stages[0].role : 'N/A';
+            actionedHtml = '<div class="track-actioned-info stage-info">⏳ <strong>Pending</strong> — Awaiting action from <strong>' + firstRole + '</strong></div>';
         }
 
-        return `
-            <div class="track-result-card">
-                <div class="track-card-header">
-                    <span class="track-form-id">📋 ${data.formId}</span>
-                    <span class="track-status-badge ${statusClass}">${status}</span>
-                </div>
+        // ===== BUILD CARD =====
+        var html = '<div class="track-result-card">';
+        html += '<div class="track-card-header"><span class="track-form-id">📋 ' + data.formId + '</span>' + badgeHtml + '</div>';
+        html += '<div class="track-progress">' + progressHtml + '</div>';
+        html += detailHtml;
+        html += historyHtml;
+        html += actionedHtml;
+        html += '</div>';
 
-                <div class="track-progress">
-                    ${progressHtml}
-                </div>
-
-                <div class="track-detail-grid">
-                    <div class="track-detail-item">
-                        <div class="label">Full Name</div>
-                        <div class="value">${data.lastName}, ${data.firstName} ${data.mi || ''}</div>
-                    </div>
-                    <div class="track-detail-item">
-                        <div class="label">Office / Division</div>
-                        <div class="value">${data.office || 'N/A'}</div>
-                    </div>
-                    <div class="track-detail-item">
-                        <div class="label">Date Submitted</div>
-                        <div class="value">${data.date || 'N/A'}</div>
-                    </div>
-                    <div class="track-detail-item">
-                        <div class="label">Telephone</div>
-                        <div class="value">${data.telephone || 'N/A'}</div>
-                    </div>
-                    <div class="track-detail-item track-detail-full">
-                        <div class="label">Purpose of Justification</div>
-                        <div class="value">${data.purpose || 'N/A'}</div>
-                    </div>
-                    <div class="track-detail-item">
-                        <div class="label">Period of Use</div>
-                        <div class="value">${data.period || 'N/A'}</div>
-                    </div>
-                    <div class="track-detail-item">
-                        <div class="label">Duration</div>
-                        <div class="value">${data.fromDate || '—'} → ${data.toDate || '—'}</div>
-                    </div>
-                </div>
-
-                ${actionedHtml}
-            </div>
-        `;
+        return html;
     }
 
     function formatTrackDate(isoString) {
         if (!isoString) return '';
-        const d = new Date(isoString);
+        var d = new Date(isoString);
         return (d.getMonth()+1).toString().padStart(2,'0') + '/' +
                d.getDate().toString().padStart(2,'0') + '/' +
                d.getFullYear() + ' ' +
