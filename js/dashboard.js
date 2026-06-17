@@ -46,56 +46,15 @@ function getWorkflowConfig() {
 }
 
 
-function saveWorkflow() {
-  var config = getWorkflowConfig();
 
-  // ✅ ALWAYS force final stage to Approved
-  if (config.stages.length > 0) {
-    config.stages[config.stages.length - 1].completedStatus = 'Approved';
-  }
-
-  var valid = true;
-
+function saveWorkflowConfig(config) {
+  // Re-number orders before saving
   config.stages.forEach(function (stage, i) {
-    if (!stage.name || !stage.role) valid = false;
-
-    if (i < config.stages.length - 1 && !stage.completedStatus) {
-      valid = false;
-    }
+    stage.order = i + 1;
   });
-
-  if (!valid) {
-    showToast('All stages must have a name, role, and status label.', 'error');
-    return;
-  }
-
-  var statuses = [];
-
-  for (var i = 0; i < config.stages.length; i++) {
-    var st = config.stages[i].completedStatus;
-
-    if (statuses.indexOf(st) !== -1) {
-      showToast(
-        'Duplicate status: "' + st + '". Each stage must have a unique status.',
-        'error'
-      );
-      return;
-    }
-
-    statuses.push(st);
-  }
-
-  saveWorkflowConfig(config);
-
-  populateRoleDropdown();
-  populateStatusFilter();
-  renderWorkflowBuilder();
-  updateDashboardStats();
-  updateSnarfSummary();
-  updateAllBadges();
-
-  showToast('Workflow saved successfully!', 'success');
+  localStorage.setItem('workflowConfig', JSON.stringify(config));
 }
+
 
 
 // ===================== CUSTOM ROLE STORAGE =====================
