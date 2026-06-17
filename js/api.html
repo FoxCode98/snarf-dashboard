@@ -1,0 +1,101 @@
+
+// ===========================================
+// ⚙️ POWER AUTOMATE ENDPOINTS
+// ===========================================
+const API = {
+  GET_USERS:       'https://prod-xx.westus.logic.azure.com/workflows/YOUR_FLOW_URL_1',
+  POST_USER:       'https://prod-xx.westus.logic.azure.com/workflows/YOUR_FLOW_URL_2',
+  GET_SUBMISSIONS: 'https://prod-xx.westus.logic.azure.com/workflows/YOUR_FLOW_URL_3',
+  POST_SUBMISSION: 'https://prod-xx.westus.logic.azure.com/workflows/YOUR_FLOW_URL_4',
+  UPDATE_SUBMISSION:'https://prod-xx.westus.logic.azure.com/workflows/YOUR_FLOW_URL_5'
+};
+
+// ===========================================
+// USERS
+// ===========================================
+async function fetchUsers() {
+  try {
+    const res = await fetch(API.GET_USERS);
+    const data = await res.json();
+    return data.map(u => ({
+      id: u.ID,
+      name: u.Name,
+      email: u.Email,
+      password: u.Password,
+      role: u.Role
+    }));
+  } catch (err) {
+    console.error('Failed to fetch users:', err);
+    // Fallback to localStorage
+    const s = localStorage.getItem('appUsers');
+    return s ? JSON.parse(s) : [];
+  }
+}
+
+async function registerUser(name, email, password) {
+  try {
+    const res = await fetch(API.POST_USER, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        Name: name,
+        Email: email,
+        Password: password,
+        Role: 'Viewer'
+      })
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Failed to register user:', err);
+    return null;
+  }
+}
+
+// ===========================================
+// SUBMISSIONS
+// ===========================================
+async function fetchSubmissions() {
+  try {
+    const res = await fetch(API.GET_SUBMISSIONS);
+    const data = await res.json();
+    return data.map(s => ({
+      formId: s.FormID,
+      lastName: s.LastName,
+      firstName: s.FirstName,
+      mi: s.MI,
+      office: s.Office,
+      telephone: s.Telephone,
+      date: s.DateSubmitted,
+      purpose: s.Purpose,
+      description: s.Description,
+      period: s.Period,
+      fromDate: s.FromDate,
+      toDate: s.ToDate,
+      status: s.Status || 'Pending',
+      actionedBy: s.ActionedBy,
+      actionedByRole: s.ActionedByRole,
+      actionedAt: s.ActionedAt,
+      initialConduct: s.InitialConduct,
+      regularConduct: s.RegularConduct,
+      asRequested: s.AsRequested
+    }));
+  } catch (err) {
+    console.error('Failed to fetch submissions:', err);
+    const s = localStorage.getItem('snarfFormSubmissions');
+    return s ? JSON.parse(s) : [];
+  }
+}
+
+async function updateSubmission(formId, updates) {
+  try {
+    const res = await fetch(API.UPDATE_SUBMISSION, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ FormID: formId, ...updates })
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Failed to update submission:', err);
+    return null;
+  }
+}
