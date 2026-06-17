@@ -34,6 +34,263 @@ body {
   gap: 15px;
 }
 
+/* ===================== REJECT REASON MODAL ===================== */
+
+#rejectReasonModal {
+  z-index: 1100;
+}
+
+.reject-modal-content {
+  max-width: 520px;
+  width: 520px;
+  border-top: 4px solid #ef4444;
+  animation: rejectSlideIn 0.25s ease-out;
+}
+
+@keyframes rejectSlideIn {
+  from { opacity: 0; transform: translateY(-20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.reject-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.reject-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.reject-modal-header .reject-icon {
+  font-size: 24px;
+}
+
+.reject-target-info {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #991b1b;
+  line-height: 1.5;
+}
+
+.reject-target-info strong {
+  color: #7f1d1d;
+}
+
+.reject-form-group {
+  margin-bottom: 16px;
+}
+
+.reject-form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: #475569;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.required-asterisk {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.reject-category-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  color: #1e293b;
+  background: #f8fafc;
+  transition: border-color 0.2s;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23475569' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+}
+
+.reject-category-select:focus {
+  border-color: #ef4444;
+  outline: none;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23475569' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.reject-reason-textarea {
+  width: 100%;
+  min-height: 120px;
+  max-height: 250px;
+  padding: 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  color: #1e293b;
+  background: #f8fafc;
+  resize: vertical;
+  transition: border-color 0.2s, background-color 0.2s;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.reject-reason-textarea:focus {
+  border-color: #ef4444;
+  outline: none;
+  background: #fff;
+}
+
+.reject-reason-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.reject-reason-textarea.error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.reject-validation-msg {
+  color: #ef4444;
+  font-size: 12px;
+  margin-top: 4px;
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.reject-validation-msg.visible {
+  display: flex;
+}
+
+.reject-char-count {
+  text-align: right;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 4px;
+  transition: color 0.2s;
+}
+
+.reject-char-count.near-limit {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.reject-char-count.at-limit {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.reject-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.reject-confirm-btn {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.reject-confirm-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.reject-confirm-btn:disabled {
+  background: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.reject-cancel-btn {
+  padding: 10px 24px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.reject-cancel-btn:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+/* ===== REJECTION REASON DISPLAY (Detail Modal) ===== */
+.rejection-reason-display {
+  background: linear-gradient(135deg, #fef2f2, #fff1f2);
+  border: 1px solid #fecaca;
+  border-left: 4px solid #ef4444;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.rejection-reason-display h4 {
+  margin: 0 0 10px 0;
+  font-size: 15px;
+  color: #991b1b;
+}
+
+.rejection-category-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #fee2e2;
+  color: #dc2626;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.rejection-reason-text {
+  color: #7f1d1d;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.stage-reason-text {
+  font-size: 12px;
+  color: #991b1b;
+  margin-left: 20px;
+  margin-top: 2px;
+  font-style: italic;
+}
+
 .user-info-badge {
   background: rgba(255,255,255,0.2);
   padding: 6px 14px;
@@ -145,13 +402,14 @@ table th { padding: 15px; text-align: left; color: #4f46e5; font-weight: 600; fo
 table td { padding: 15px; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
 table tr:hover { background-color: #f9f9f9; }
 
-/* ===== ROLES (all with consistent borders) ===== */
+/* ===== ROLES ===== */
 .role-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.03em; }
 .role-admin { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
 .role-editor { background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
 .role-viewer { background-color: #dbeafe; color: #0c2d6b; border: 1px solid #93c5fd; }
 .role-supervisor { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
 .role-submitter { background: #ecfeff; color: #155e75; border: 1px solid #67e8f9; }
+.role-approval { background-color: #ede9fe; color: #5b21b6; border: 1px solid #a78bfa; }
 
 /* ===== ACTION BUTTONS ===== */
 .action-buttons { display: flex; gap: 8px; }
@@ -205,6 +463,10 @@ table tr:hover { background-color: #f9f9f9; }
 .summary-rejected .summary-count { color: #ef4444; }
 .summary-rejected .summary-label { color: #991b1b; }
 
+.summary-stage { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.summary-stage .summary-count { color: #3b82f6; }
+.summary-stage .summary-label { color: #1e40af; }
+
 /* ===== SNARF TOOLBAR ===== */
 .snarf-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
 .snarf-toolbar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -227,7 +489,7 @@ table tr:hover { background-color: #f9f9f9; }
 .snarf-bulk-reject:hover { background-color: #d97706; }
 .snarf-bulk-delete { background-color: #ef4444; }
 .snarf-bulk-delete:hover { background-color: #dc2626; }
-.snarf-bulk-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.snarf-bulk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ===== SNARF TABLE ===== */
 .snarf-table-wrapper { overflow-x: auto; }
@@ -245,6 +507,7 @@ table tr:hover { background-color: #f9f9f9; }
 .status-pending { background-color: #fef3c7; color: #92400e; }
 .status-approved { background-color: #d1fae5; color: #065f46; }
 .status-rejected { background-color: #fee2e2; color: #991b1b; }
+.status-reviewed { background-color: #dbeafe; color: #1e40af; }
 
 .snarf-view-btn {
   padding: 7px 16px;
@@ -297,6 +560,7 @@ table tr:hover { background-color: #f9f9f9; }
 }
 .detail-actioned-section.rejected { background: #fef2f2; border-left-color: #ef4444; }
 .detail-actioned-section.pending-section { background: #fffbeb; border-left-color: #f59e0b; }
+.detail-actioned-section.reviewed-section { background: #eff6ff; border-left-color: #3b82f6; }
 
 .detail-action-bar {
   display: flex;
@@ -330,7 +594,7 @@ table tr:hover { background-color: #f9f9f9; }
 .detail-close-btn:hover { background-color: #4338ca; }
 .save-conduct-btn { background-color: #0ea5e9; color: white; }
 .save-conduct-btn:hover { background-color: #0284c7; }
-.detail-action-bar button:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.detail-action-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ===== CONDUCT SECTION ===== */
 .conduct-section {
@@ -432,15 +696,338 @@ table tr:hover { background-color: #f9f9f9; }
 }
 .viewer-notice.visible { display: block; }
 
-/* ===== REVIEWED STATUS ===== */
-.status-reviewed { background-color: #dbeafe; color: #1e40af; }
+/* ===================== WORKFLOW BUILDER ===================== */
+.workflow-pipeline {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  gap: 0;
+}
 
-.summary-reviewed { background: #eff6ff; border-left: 4px solid #3b82f6; }
-.summary-reviewed .summary-count { color: #3b82f6; }
-.summary-reviewed .summary-label { color: #1e40af; }
+.pipeline-node {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: center;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
 
-.detail-actioned-section.reviewed-section { background: #eff6ff; border-left-color: #3b82f6; }
+.pipeline-node-pending {
+  background: #fef3c7;
+  color: #92400e;
+  border: 2px solid #f59e0b;
+}
 
+.pipeline-node-stage {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 2px solid #3b82f6;
+}
+
+.pipeline-node-approved {
+  background: #d1fae5;
+  color: #065f46;
+  border: 2px solid #16a34a;
+}
+
+.pipeline-arrow {
+  font-size: 18px;
+  color: #94a3b8;
+  padding: 0 8px;
+  flex-shrink: 0;
+}
+
+.workflow-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stage-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.stage-card:hover {
+  border-color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.1);
+}
+
+.stage-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.stage-fields {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.stage-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stage-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stage-field input,
+.stage-field select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.2s;
+}
+
+.stage-field input:focus,
+.stage-field select:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 4px rgba(79, 70, 229, 0.3);
+}
+
+.stage-field input { width: 160px; }
+.stage-field select { min-width: 150px; }
+
+.stage-controls {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.stage-ctrl-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s;
+  color: #64748b;
+}
+
+.stage-ctrl-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.stage-ctrl-btn.delete-stage:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.stage-ctrl-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.add-stage-btn {
+  width: 100%;
+  padding: 12px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+  margin-bottom: 16px;
+}
+
+.add-stage-btn:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+  background: #eef2ff;
+}
+
+.workflow-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.save-workflow-btn {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.save-workflow-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+.last-stage-label {
+  display: inline-block;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===================== ROLE MANAGER ===================== */
+.role-manager {
+  margin-bottom: 20px;
+}
+
+.role-manager h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 10px;
+}
+
+.role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.role-chip.system-role {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #cbd5e1;
+}
+
+.role-chip.system-role .role-chip-label {
+  font-style: italic;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.role-chip.approval-role {
+  background: #ede9fe;
+  color: #5b21b6;
+  border-color: #a78bfa;
+}
+
+.role-chip-delete {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.1);
+  color: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+
+.role-chip-delete:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.role-chip-usage {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.role-chip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.role-chip-name {
+  line-height: 1.2;
+}
+
+.add-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 2px dashed #cbd5e1;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+.add-role-chip:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+  background: #eef2ff;
+}
 
 /* ===== RESPONSIVE DESIGN ===== */
 @media (max-width: 768px) {
@@ -545,6 +1132,22 @@ table tr:hover { background-color: #f9f9f9; }
     padding: 20px;
   }
 
+  .reject-modal-content {
+    width: 95vw;
+    max-width: 95vw;
+    padding: 20px;
+  }
+
+  .reject-modal-actions {
+    flex-direction: column;
+  }
+
+  .reject-confirm-btn,
+  .reject-cancel-btn {
+    width: 100%;
+    text-align: center;
+  }
+
   .settings-card-header {
     flex-direction: column;
     align-items: flex-start;
@@ -601,6 +1204,49 @@ table tr:hover { background-color: #f9f9f9; }
   .edit-btn, .delete-btn {
     width: 100%;
     text-align: center;
+  }
+
+  /* Workflow responsive */
+  .stage-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stage-number {
+    align-self: flex-start;
+  }
+
+  .stage-fields {
+    flex-direction: column;
+  }
+
+  .stage-field input,
+  .stage-field select {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .stage-controls {
+    justify-content: flex-end;
+  }
+
+  .workflow-pipeline {
+    padding: 12px;
+  }
+
+  .pipeline-node {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  /* Role chips responsive */
+  .role-chips {
+    gap: 6px;
+  }
+
+  .role-chip {
+    font-size: 12px;
+    padding: 5px 10px;
   }
 }
 
