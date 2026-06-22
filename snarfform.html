@@ -17,6 +17,8 @@
             position: relative;
         }
 
+        
+
         .back-top-btn {
             position: absolute;
             top: 20px; left: 20px;
@@ -215,19 +217,21 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
-    <div class="success-overlay" id="successOverlay">
-        <div class="success-box">
-            <div class="checkmark">✅</div>
-            <h2>Submitted Successfully!</h2>
-            <p>Your SNARF request has been submitted and is now pending review.</p>
-            <p>Your Form ID:</p>
-            <div class="form-id" id="successFormId">SNARF-00001</div>
-            <div>
-                <button onclick="closeSuccessAndReset()">Submit Another</button>
-                <button class="btn-secondary" onclick="goBack()">Back</button>
-            </div>
+    
+<div class="success-overlay" id="successOverlay">
+    <div class="success-box">
+        <div class="checkmark">✅</div>
+        <h2>Submitted Successfully!</h2>
+        <p>Your SNARF request has been submitted and is now pending review.</p>
+        <p>Your Form ID:</p>
+        <div class="form-id" id="successFormId">SNARF-00001</div>
+        <div>
+            <button onclick="closeSuccessAndReset()">Submit Another</button>
+            <button class="btn-secondary" onclick="goBack()">Back</button>
         </div>
     </div>
+</div>
+
 
     <button class="back-top-btn" onclick="goBack()">← Back</button>
 
@@ -343,6 +347,26 @@
             container.appendChild(toast);
             setTimeout(() => { toast.remove(); }, 3000);
         }
+
+        
+        
+function goBack() {
+  // If this tab was opened from another window (e.g. dashboard's "+ New SNARF Form"),
+  // just close this tab — that returns the user to the dashboard naturally.
+  if (window.opener && !window.opener.closed) {
+    window.close();
+    return;
+  }
+
+  // Otherwise (opened directly from landing page, bookmark, etc.), use browser history
+  if (window.history.length > 1 && document.referrer) {
+    window.history.back();
+  } else {
+    window.location.href = 'landingpage.html';
+  }
+}
+
+
 
         function toggleDates(enable) {
             document.getElementById("fromDate").disabled = !enable;
