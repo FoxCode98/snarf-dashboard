@@ -239,13 +239,16 @@ function applyRolePermissions() {
 
   if (role === 'Admin') return;
 
+  
   if (isApprovalRole(role)) {
     hideEl('userMgmtCard');
     hideEl('workflowCard');
     hideEl('settingsTabBtn');
     hideEl('bulkDeleteBtn');
+    hideEl('newSnarfFormBtn');
     return;
   }
+
 
   if (role === 'Submitter') {
     hideEl('analyticsTabBtn');
@@ -343,16 +346,6 @@ function loadUsersFromStorage() {
 }
 
 function saveUsersToStorage() { localStorage.setItem('appUsers', JSON.stringify(users)); }
-
-function goBack() {
-  // If there's a history entry, go back. Otherwise fallback to landing page.
-  if (window.history.length > 1 && document.referrer) {
-    window.history.back();
-  } else {
-    window.location.href = 'landingpage.html';
-  }
-}
-
 
 // ===================== RENDER USERS TABLE =====================
 function renderUsersTable(filterTerm) {
@@ -872,6 +865,14 @@ function switchTab(tabName, btnElement) {
   if (tabName === 'home') { updateDashboardStats(); updateAllBadges(); }
   if (tabName === 'settings') { filterUsersTable(); renderWorkflowBuilder(); }
 }
+
+
+// ===================== OPEN SNARF FORM =====================
+function openSnarfForm() {
+  window.open('snarfform.html', '_blank');
+}
+
+
 
 // ===================== LOGOUT =====================
 function logout() {
@@ -1969,4 +1970,17 @@ document.addEventListener('keydown', function (e) {
   else if (id === 'newRoleModal') closeNewRoleModal();
   else if (id === 'profileModal') closeProfileModal();
   else if (id === 'detailModal') closeDetailModal();
+
+
+  
+// ===================== AUTO-REFRESH ON FOCUS =====================
+window.addEventListener('focus', function () {
+  var active = document.querySelector('.tab-content.active');
+  if (active && active.id === 'snarf-form') {
+    filterSnarfTable();
+    updateSnarfSummary();
+    updateAllBadges();
+  }
+});
+
 });
