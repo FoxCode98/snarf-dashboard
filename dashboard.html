@@ -1,6 +1,7 @@
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,9 +11,9 @@
   <title>Dashboard</title>
   <link rel="stylesheet" href="css/dashboard.css" />
 </head>
+
 <body>
 
-  <!-- Fallback for users with JavaScript disabled -->
   <noscript>
     <div style="padding:40px; text-align:center; font-family:sans-serif;">
       <h2>&#9888;&#65039; JavaScript Required</h2>
@@ -20,7 +21,6 @@
     </div>
   </noscript>
 
-  <!-- Toast notifications container — aria-live ensures screen readers announce toasts -->
   <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
   <nav class="navbar">
@@ -104,6 +104,7 @@
             </select>
           </div>
           <div class="snarf-toolbar-right" id="snarfToolbarRight">
+            <button type="button" class="new-form-btn" id="newSnarfFormBtn" onclick="openSnarfForm()">&#10133; New SNARF Form</button>
             <button type="button" class="snarf-bulk-btn snarf-bulk-approve" id="bulkApproveBtn" onclick="bulkAction('Advance')" disabled>&#10004; Bulk Advance</button>
             <button type="button" class="snarf-bulk-btn snarf-bulk-reject" id="bulkRejectBtn" onclick="bulkAction('Rejected')" disabled>&#10008; Bulk Reject</button>
             <button type="button" class="snarf-bulk-btn snarf-bulk-delete" id="bulkDeleteBtn" onclick="bulkAction('Delete')" disabled>&#128465; Bulk Delete</button>
@@ -136,7 +137,6 @@
     <!-- SETTINGS -->
     <div id="settings" class="tab-content" role="tabpanel">
       <div class="settings-container">
-        <!-- User Management -->
         <div class="settings-card" id="userMgmtCard">
           <div class="settings-card-header">
             <div><h3>&#128101; User Management</h3><p>Add, edit, or remove users from the system.</p></div>
@@ -155,7 +155,6 @@
           </div>
         </div>
 
-        <!-- Workflow Builder + Role Manager -->
         <div class="settings-card" id="workflowCard">
           <div class="settings-card-header">
             <div><h3>&#128260; Approval Workflow</h3><p>Configure the multi-stage approval pipeline.</p></div>
@@ -172,7 +171,6 @@
           </div>
         </div>
 
-        <!-- Tab Visibility -->
         <div class="settings-card">
           <h3>&#9881;&#65039; Tab Visibility</h3><p>Control which tabs are visible on the dashboard.</p>
           <div class="setting-item">
@@ -191,7 +189,6 @@
           </div>
         </div>
 
-        <!-- Account -->
         <div class="settings-card">
           <h3>&#128100; Account</h3><p>Manage your account preferences.</p>
           <div class="setting-item">
@@ -205,7 +202,6 @@
 
   <!-- ==================== MODALS ==================== -->
 
-  <!-- User Modal -->
   <div id="userModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
     <div class="modal-content">
       <h3 id="modalTitle">Add New User</h3>
@@ -219,7 +215,6 @@
     </div>
   </div>
 
-  <!-- Reject Reason Modal -->
   <div id="rejectReasonModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="rejectModalTitle" tabindex="-1">
     <div class="modal-content reject-modal-content">
       <div class="reject-modal-header">
@@ -255,7 +250,6 @@
     </div>
   </div>
 
-  <!-- New Role Modal -->
   <div id="newRoleModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="newRoleModalTitle" tabindex="-1">
     <div class="modal-content" style="max-width:380px;">
       <h3 id="newRoleModalTitle">&#10133; Create New Role</h3>
@@ -266,7 +260,6 @@
     </div>
   </div>
 
-  <!-- Profile Modal -->
   <div id="profileModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle" tabindex="-1">
     <div class="modal-content">
       <h3 id="profileModalTitle">&#128100; Edit Profile</h3>
@@ -302,7 +295,7 @@
     </div>
   </div>
 
-  <!-- Detail Modal -->
+  
   <div id="detailModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle" tabindex="-1">
     <div class="detail-modal-content">
       <h3 id="detailModalTitle">&#128196; Submission Details</h3>
