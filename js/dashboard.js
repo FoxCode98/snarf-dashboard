@@ -210,7 +210,6 @@ function showToast(msg, type) {
   type = type || 'success';
   var c = document.getElementById('toastContainer');
   if (!c) return;
-  // Limit stacked toasts
   while (c.children.length >= 5) c.firstChild.remove();
   var t = document.createElement('div');
   t.className = 'toast toast-' + type;
@@ -219,12 +218,10 @@ function showToast(msg, type) {
   setTimeout(function () { t.remove(); }, 3000);
 }
 
-// ===================== CURRENT USER ===================== (FIX 2)
+// ===================== CURRENT USER =====================
 function getCurrentUser() {
   var user = safeParse('currentUser', null);
   if (user) return user;
-
-  // Default to first Admin in users[] so Profile Edit & permissions work
   var firstAdmin = users.find(function (u) { return u.role === 'Admin'; });
   if (firstAdmin) {
     return { name: firstAdmin.name, role: firstAdmin.role, email: firstAdmin.email };
@@ -315,7 +312,7 @@ function displayCurrentUser() {
   if (el) el.textContent = 'Welcome, ' + getCurrentUser().name + '! 👋';
 }
 
-// ===================== POPULATE ROLE DROPDOWN ===================== (FIX 8)
+// ===================== POPULATE ROLE DROPDOWN =====================
 function populateRoleDropdown() {
   var sel = document.getElementById('userRole');
   if (!sel) return;
@@ -327,7 +324,7 @@ function populateRoleDropdown() {
   sel.innerHTML = opts;
 }
 
-// ===================== POPULATE STATUS FILTER ===================== (FIX 9)
+// ===================== POPULATE STATUS FILTER =====================
 function populateStatusFilter() {
   var sel = document.getElementById('snarfStatusFilter');
   if (!sel) return;
@@ -347,7 +344,7 @@ function loadUsersFromStorage() {
 
 function saveUsersToStorage() { localStorage.setItem('appUsers', JSON.stringify(users)); }
 
-// ===================== RENDER USERS TABLE ===================== (FIX 7)
+// ===================== RENDER USERS TABLE =====================
 function renderUsersTable(filterTerm) {
   filterTerm = filterTerm || '';
   var tbody = document.getElementById('userTableBody');
@@ -379,7 +376,7 @@ function filterUsersTable() {
   renderUsersTable(el ? el.value.toLowerCase().trim() : '');
 }
 
-// ===================== OPEN ADD USER MODAL ===================== (FIX 6)
+// ===================== OPEN ADD USER MODAL =====================
 function openAddUserModal() {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
   editingUserId = null;
@@ -397,7 +394,7 @@ function openAddUserModal() {
   setTimeout(function () { if (un) un.focus(); }, 150);
 }
 
-// ===================== OPEN EDIT USER MODAL ===================== (FIX 5)
+// ===================== OPEN EDIT USER MODAL =====================
 function openEditUserModal(userId) {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
   var user = users.find(function (u) { return u.id === userId; });
@@ -420,7 +417,7 @@ function openEditUserModal(userId) {
 
 function closeUserModal() { var m = document.getElementById('userModal'); if (m) m.classList.remove('active'); }
 
-// ===================== SAVE USER ===================== (FIX 4)
+// ===================== SAVE USER =====================
 function saveUser() {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
   var name = (document.getElementById('userName') || {}).value || '';
@@ -429,11 +426,9 @@ function saveUser() {
   var role = (document.getElementById('userRole') || {}).value || 'Viewer';
   name = name.trim(); email = email.trim(); password = password.trim();
 
-  // Validation
   if (!name || !email) { showToast('Name and email are required.', 'error'); return; }
   if (!editingUserId && !password) { showToast('Password is required for new users.', 'error'); return; }
 
-  // Email uniqueness check
   var emailLower = email.toLowerCase();
   for (var k = 0; k < users.length; k++) {
     if (users[k].id !== editingUserId && users[k].email.toLowerCase() === emailLower) {
@@ -445,11 +440,9 @@ function saveUser() {
   if (editingUserId) {
     var user = users.find(function (u) { return u.id === editingUserId; });
     if (user) {
-      // Detect if editing self
       var cu = getCurrentUser();
       var wasSelf = ((cu.email && user.email === cu.email) || cu.name === user.name);
 
-      // Prevent demoting the last Admin
       if (user.role === 'Admin' && role !== 'Admin') {
         var admins = users.filter(function (u) { return u.role === 'Admin'; });
         if (admins.length <= 1) {
@@ -461,9 +454,8 @@ function saveUser() {
       user.name = name;
       user.email = email;
       user.role = role;
-      if (password) user.password = password;  // only update if a new password was typed
+      if (password) user.password = password;
 
-      // Sync currentUser if editing self
       if (wasSelf) {
         localStorage.setItem('currentUser', JSON.stringify({
           name: name, role: role, email: email
@@ -482,20 +474,18 @@ function saveUser() {
   saveUsersToStorage(); filterUsersTable(); updateDashboardStats(); renderRoleChips(); closeUserModal();
 }
 
-// ===================== DELETE USER ===================== (FIX 3)
+// ===================== DELETE USER =====================
 function deleteUser(userId) {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
   var cu = getCurrentUser();
   var target = users.find(function (u) { return u.id === userId; });
   if (!target) return;
 
-  // Prevent deleting yourself
   if ((cu.email && target.email === cu.email) || target.name === cu.name) {
     showToast('You cannot delete your own account.', 'error');
     return;
   }
 
-  // Prevent deleting the last Admin
   if (target.role === 'Admin') {
     var admins = users.filter(function (u) { return u.role === 'Admin'; });
     if (admins.length <= 1) {
@@ -873,7 +863,7 @@ function switchTab(tabName, btnElement) {
   if (tabName === 'settings') { filterUsersTable(); renderWorkflowBuilder(); }
 }
 
-// ===================== LOGOUT ===================== (FIX 1)
+// ===================== LOGOUT =====================
 function logout() {
   showToast('Logging out...', 'info');
   localStorage.removeItem('currentUser');
@@ -1136,6 +1126,65 @@ function addFormResultToTable(formData) {
   tbody.appendChild(row);
 }
 
+// ===================== ATTACHMENTS RENDERING =====================
+function renderAttachmentsHtml(attachments) {
+  if (!attachments || attachments.length === 0) {
+    return '<div style="color:#6b7280;font-style:italic;font-size:13px;">No attachments.</div>';
+  }
+  var html = '<div class="attachments-list">';
+  attachments.forEach(function (f, i) {
+    var ext = (f.ext || '').toLowerCase();
+    var iconClass = 'image', icon = '🖼️';
+    if (ext === 'pdf') { iconClass = 'pdf'; icon = '📄'; }
+    else if (ext === 'pptx') { iconClass = 'pptx'; icon = '📊'; }
+
+    var sizeText = f.size > 1024 * 1024
+      ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
+      : (f.size / 1024).toFixed(1) + ' KB';
+
+    var canView = (ext === 'pdf' || ext === 'jpeg' || ext === 'jpg' || ext === 'png');
+
+    html += '<div class="attachment-item">';
+    html += '<div class="attachment-icon ' + iconClass + '">' + icon + '</div>';
+    html += '<div class="attachment-info"><div class="attachment-name">' + esc(f.name) + '</div>';
+    html += '<div class="attachment-size">' + sizeText + '</div></div>';
+    html += '<div class="attachment-actions">';
+    if (canView) {
+      html += '<button type="button" class="attachment-btn attachment-btn-view" onclick="viewAttachment(\'' + currentDetailFormId + '\', ' + i + ')">👁 View</button>';
+    }
+    html += '<button type="button" class="attachment-btn attachment-btn-download" onclick="downloadAttachment(\'' + currentDetailFormId + '\', ' + i + ')">⬇ Download</button>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function viewAttachment(formId, index) {
+  var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
+  if (!data || !data.attachments || !data.attachments[index]) return;
+  var f = data.attachments[index];
+  var win = window.open('', '_blank');
+  if (!win) { showToast('Pop-up blocked. Allow pop-ups to view.', 'error'); return; }
+  var ext = (f.ext || '').toLowerCase();
+  if (ext === 'pdf') {
+    win.document.write('<title>' + esc(f.name) + '</title><iframe src="' + f.dataUrl + '" style="border:0;width:100vw;height:100vh;"></iframe>');
+  } else {
+    win.document.write('<title>' + esc(f.name) + '</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="' + f.dataUrl + '" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>');
+  }
+}
+
+function downloadAttachment(formId, index) {
+  var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
+  if (!data || !data.attachments || !data.attachments[index]) return;
+  var f = data.attachments[index];
+  var link = document.createElement('a');
+  link.href = f.dataUrl;
+  link.download = f.name;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 // ===================== GENERATE APPROVED ID =====================
 function generateApprovedId(originalId, liveSubs) {
   var year = new Date().getFullYear();
@@ -1249,6 +1298,11 @@ function viewSnarfDetail(formId) {
     }
     html += '</div>';
   }
+
+  // Attachments section
+  html += '<div class="conduct-section" style="border-left-color:#6366f1;"><h4>📎 Attachments</h4>';
+  html += renderAttachmentsHtml(data.attachments);
+  html += '</div>';
 
   if (isActioned && data.actionedBy) {
     var sc = status === 'Rejected' ? 'rejected' : '';
@@ -1513,6 +1567,7 @@ function deleteSnarfSubmission(formId) {
   refreshAll(); showToast(formId + ' deleted.', 'error');
 }
 
+
 // ===================== PAGINATION =====================
 function renderPagination(totalPages) {
   var c = document.getElementById('snarfPagination'); if (!c) return;
@@ -1561,7 +1616,6 @@ function updateBulkButtons() {
   var br = document.getElementById('bulkRejectBtn'); if (br) br.disabled = !h;
   var bd = document.getElementById('bulkDeleteBtn'); if (bd) bd.disabled = !h;
 }
-
 
 // ===================== EXPORT CSV =====================
 function exportSnarfToExcel() {
@@ -1841,7 +1895,6 @@ function saveProfile() {
   if (!newName) { showError('Name cannot be empty.'); if (nameEl) nameEl.focus(); return; }
   if (!curPwd) { showError('Current password is required to save changes.'); if (curEl) curEl.focus(); return; }
 
-  // Find current user record
   var idx = -1;
   for (var i = 0; i < users.length; i++) {
     if ((cu.email && users[i].email === cu.email) || users[i].name === cu.name) {
@@ -1850,21 +1903,18 @@ function saveProfile() {
   }
   if (idx === -1) { showError('Could not locate your user account.'); return; }
 
-  // Verify current password
   if (users[idx].password !== curPwd) {
     showError('Current password is incorrect.');
     if (curEl) { curEl.focus(); curEl.select(); }
     return;
   }
 
-  // If new password provided, validate it
   if (newPwd) {
     if (newPwd.length < 4) { showError('New password must be at least 4 characters.'); if (newEl) newEl.focus(); return; }
     if (newPwd !== confPwd) { showError('New password and confirmation do not match.'); if (confEl) { confEl.focus(); confEl.select(); } return; }
     if (newPwd === curPwd) { showError('New password must be different from the current password.'); if (newEl) newEl.focus(); return; }
   }
 
-  // Check name collision with other users (case-insensitive)
   var nameLower = newName.toLowerCase();
   for (var j = 0; j < users.length; j++) {
     if (j !== idx && users[j].name.toLowerCase() === nameLower) {
@@ -1874,12 +1924,10 @@ function saveProfile() {
     }
   }
 
-  // Apply changes
   users[idx].name = newName;
   if (newPwd) users[idx].password = newPwd;
   saveUsersToStorage();
 
-  // Update currentUser in localStorage
   var updatedCurrent = {
     name: newName,
     role: users[idx].role,
@@ -1887,7 +1935,6 @@ function saveProfile() {
   };
   localStorage.setItem('currentUser', JSON.stringify(updatedCurrent));
 
-  // Refresh UI
   displayCurrentUser();
   applyRolePermissions();
   filterUsersTable();
