@@ -344,6 +344,16 @@ function loadUsersFromStorage() {
 
 function saveUsersToStorage() { localStorage.setItem('appUsers', JSON.stringify(users)); }
 
+function goBack() {
+  // If there's a history entry, go back. Otherwise fallback to landing page.
+  if (window.history.length > 1 && document.referrer) {
+    window.history.back();
+  } else {
+    window.location.href = 'landingpage.html';
+  }
+}
+
+
 // ===================== RENDER USERS TABLE =====================
 function renderUsersTable(filterTerm) {
   filterTerm = filterTerm || '';
