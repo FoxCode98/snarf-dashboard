@@ -29,40 +29,51 @@ var ROLE_COLORS = [
   { bg: '#fdf2f8', text: '#9d174d', border: '#f9a8d4' }
 ];
 
-// ===================== WORKFLOW CONFIG =====================
-function getWorkflowConfig() {
-  var s = localStorage.getItem('workflowConfig');
-  if (s) {
-    var config = JSON.parse(s);
-    config.stages.sort(function (a, b) { return a.order - b.order; });
-    return config;
+// ===================== SAFE PARSE HELPER =====================
+function safeParse(key, fallback) {
+  try {
+    var s = localStorage.getItem(key);
+    return s ? JSON.parse(s) : fallback;
+  } catch (e) {
+    console.error('Failed to parse localStorage key "' + key + '":', e);
+    return fallback;
   }
-  return {
-    stages: [
-      { id: 'stg-default-1', name: 'Review', role: 'Editor', completedStatus: 'Reviewed', order: 1 },
-      { id: 'stg-default-2', name: 'Approval', role: 'Supervisor', completedStatus: 'Approved', order: 2 }
-    ]
-  };
 }
 
+// ===================== XSS SANITIZATION HELPER =====================
+function esc(str) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str || ''));
+  return div.innerHTML;
+}
 
+// ===================== WORKFLOW CONFIG =====================
+function getWorkflowConfig() {
+  var config = safeParse('workflowConfig', null);
+  if (!config) {
+    return {
+      stages: [
+        { id: 'stg-default-1', name: 'Review', role: 'Editor', completedStatus: 'Reviewed', order: 1 },
+        { id: 'stg-default-2', name: 'Approval', role: 'Supervisor', completedStatus: 'Approved', order: 2 }
+      ]
+    };
+  }
+  config.stages.sort(function (a, b) { return a.order - b.order; });
+  return config;
+}
 
 function saveWorkflowConfig(config) {
-  // Re-number orders before saving
-  config.stages.forEach(function (stage, i) {
-    stage.order = i + 1;
-  });
+  config.stages.forEach(function (stage, i) { stage.order = i + 1; });
   localStorage.setItem('workflowConfig', JSON.stringify(config));
 }
 
-
-
 // ===================== CUSTOM ROLE STORAGE =====================
 function getCustomRoles() {
-  var s = localStorage.getItem('customRoles');
-  if (s) return JSON.parse(s);
+  var roles = safeParse('customRoles', null);
+  if (roles) return roles;
+
   var config = getWorkflowConfig();
-  var roles = [];
+  roles = [];
   config.stages.forEach(function (stage) {
     if (roles.indexOf(stage.role) === -1 && stage.role) roles.push(stage.role);
   });
@@ -114,7 +125,6 @@ function isApprovalRole(role) {
   return getAllApprovalRoles().indexOf(role) !== -1;
 }
 
-// ✅ RESTORED: getNextStageIndex
 function getNextStageIndex(submission) {
   var status = submission.status || 'Pending';
   if (status === 'Pending') return 0;
@@ -126,20 +136,12 @@ function getNextStageIndex(submission) {
   return 0;
 }
 
-// ✅ FIXED: Only ONE getNextStatus — last stage always returns 'Approved'
 function getNextStatus(submission) {
   var config = getWorkflowConfig();
   var idx = getNextStageIndex(submission);
-
   if (idx < 0) return null;
-
-  // ✅ CRITICAL FIX: Last stage ALWAYS returns 'Approved'
-  if (idx === config.stages.length - 1) {
-    return 'Approved';
-  }
-
+  if (idx === config.stages.length - 1) return 'Approved';
   if (idx >= config.stages.length) return null;
-
   return config.stages[idx].completedStatus;
 }
 
@@ -189,7 +191,7 @@ function getStatusBadgeHtml(status) {
   if (status === 'Rejected') return '<span class="status-badge status-rejected">' + status + '</span>';
   var ci = getStageColorIndex(status);
   var c = STAGE_COLORS[ci % STAGE_COLORS.length];
-  return '<span class="status-badge" style="background-color:' + c.bg + ';color:' + c.text + ';">' + status + '</span>';
+  return '<span class="status-badge" style="background-color:' + c.bg + ';color:' + c.text + ';">' + esc(status) + '</span>';
 }
 
 function getRoleBadgeHtml(role) {
@@ -198,9 +200,9 @@ function getRoleBadgeHtml(role) {
   var config = getWorkflowConfig();
   var idx = -1;
   for (var i = 0; i < config.stages.length; i++) { if (config.stages[i].role === role) { idx = i; break; } }
-  if (idx === -1) return '<span class="role-badge role-approval">' + role + '</span>';
+  if (idx === -1) return '<span class="role-badge role-approval">' + esc(role) + '</span>';
   var c = ROLE_COLORS[idx % ROLE_COLORS.length];
-  return '<span class="role-badge" style="background-color:' + c.bg + ';color:' + c.text + ';border:1px solid ' + c.border + ';">' + role + '</span>';
+  return '<span class="role-badge" style="background-color:' + c.bg + ';color:' + c.text + ';border:1px solid ' + c.border + ';">' + esc(role) + '</span>';
 }
 
 // ===================== TOAST =====================
@@ -208,6 +210,8 @@ function showToast(msg, type) {
   type = type || 'success';
   var c = document.getElementById('toastContainer');
   if (!c) return;
+  // Limit stacked toasts
+  while (c.children.length >= 5) c.firstChild.remove();
   var t = document.createElement('div');
   t.className = 'toast toast-' + type;
   t.textContent = msg;
@@ -215,11 +219,17 @@ function showToast(msg, type) {
   setTimeout(function () { t.remove(); }, 3000);
 }
 
-// ===================== CURRENT USER =====================
+// ===================== CURRENT USER ===================== (FIX 2)
 function getCurrentUser() {
-  var s = localStorage.getItem('currentUser');
-  if (s) return JSON.parse(s);
-  return { name: 'Admin', role: 'Admin' };
+  var user = safeParse('currentUser', null);
+  if (user) return user;
+
+  // Default to first Admin in users[] so Profile Edit & permissions work
+  var firstAdmin = users.find(function (u) { return u.role === 'Admin'; });
+  if (firstAdmin) {
+    return { name: firstAdmin.name, role: firstAdmin.role, email: firstAdmin.email };
+  }
+  return { name: 'Admin', role: 'Admin', email: '' };
 }
 function getCurrentRole() { return getCurrentUser().role || 'Viewer'; }
 
@@ -228,7 +238,7 @@ function applyRolePermissions() {
   var user = getCurrentUser();
   var role = user.role || 'Viewer';
   var navInfo = document.getElementById('navUserInfo');
-  if (navInfo) navInfo.innerHTML = '<strong>' + user.name + '</strong> • ' + role;
+  if (navInfo) navInfo.innerHTML = '<strong>' + esc(user.name) + '</strong> • ' + esc(role);
 
   if (role === 'Admin') return;
 
@@ -253,7 +263,6 @@ function applyRolePermissions() {
     return;
   }
 
-  // Viewer or unknown
   hideEl('analyticsTabBtn');
   hideEl('settingsTabBtn');
   hideEl('pendingsTabBtn');
@@ -273,7 +282,7 @@ var users = [
   { id: 2, name: 'Jane Smith', email: 'jane@example.com', password: '1234', role: 'Editor' },
   { id: 3, name: 'Bob Johnson', email: 'bob@example.com', password: '1234', role: 'Viewer' },
   { id: 4, name: 'Mary Wilson', email: 'mary@example.com', password: '1234', role: 'Supervisor' },
-  { id: 5, name: 'Tom Garcia', email: 'tom@example.com', password: '1234', role: 'Submitter' }
+  { id: 5, name: 'Tom', email: 'tom@example.com', password: '1234', role: 'Submitter' }
 ];
 var editingUserId = null;
 var rejectPendingMode = null;
@@ -306,48 +315,61 @@ function displayCurrentUser() {
   if (el) el.textContent = 'Welcome, ' + getCurrentUser().name + '! 👋';
 }
 
+// ===================== POPULATE ROLE DROPDOWN ===================== (FIX 8)
 function populateRoleDropdown() {
   var sel = document.getElementById('userRole');
   if (!sel) return;
   var roles = getAllRoles();
-  sel.innerHTML = '';
+  var opts = '';
   roles.forEach(function (r) {
-    sel.innerHTML += '<option value="' + r + '">' + r + '</option>';
+    opts += '<option value="' + esc(r) + '">' + esc(r) + '</option>';
   });
+  sel.innerHTML = opts;
 }
 
+// ===================== POPULATE STATUS FILTER ===================== (FIX 9)
 function populateStatusFilter() {
   var sel = document.getElementById('snarfStatusFilter');
   if (!sel) return;
   var statuses = getAllPossibleStatuses();
-  sel.innerHTML = '<option value="all">All Status</option>';
+  var opts = '<option value="all">All Status</option>';
   statuses.forEach(function (s) {
-    sel.innerHTML += '<option value="' + s + '">' + s + '</option>';
+    opts += '<option value="' + esc(s) + '">' + esc(s) + '</option>';
   });
+  sel.innerHTML = opts;
 }
 
 function loadUsersFromStorage() {
-  var s = localStorage.getItem('appUsers');
-  if (s) users = JSON.parse(s);
+  var stored = safeParse('appUsers', null);
+  if (stored) users = stored;
   else saveUsersToStorage();
 }
 
 function saveUsersToStorage() { localStorage.setItem('appUsers', JSON.stringify(users)); }
 
+// ===================== RENDER USERS TABLE ===================== (FIX 7)
 function renderUsersTable(filterTerm) {
   filterTerm = filterTerm || '';
   var tbody = document.getElementById('userTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '';
+
   var filtered = users;
-  if (filterTerm) filtered = users.filter(function (u) { return [u.name, u.email, u.role].join(' ').toLowerCase().indexOf(filterTerm) !== -1; });
-  if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;font-style:italic;padding:25px;">No users found.</td></tr>';
-  } else {
-    filtered.forEach(function (user) {
-      tbody.innerHTML += '<tr><td>' + user.name + '</td><td>' + user.email + '</td><td>' + getRoleBadgeHtml(user.role) + '</td><td><div class="action-buttons"><button class="edit-btn" onclick="openEditUserModal(' + user.id + ')">Edit</button><button class="delete-btn" onclick="deleteUser(' + user.id + ')">Delete</button></div></td></tr>';
+  if (filterTerm) {
+    filtered = users.filter(function (u) {
+      return [u.name, u.email, u.role].join(' ').toLowerCase().indexOf(filterTerm) !== -1;
     });
   }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7280;font-style:italic;padding:25px;">No users found.</td></tr>';
+  } else {
+    var rows = '';
+    filtered.forEach(function (user) {
+      rows += '<tr><td>' + esc(user.name) + '</td><td>' + esc(user.email) + '</td><td>' + getRoleBadgeHtml(user.role) + '</td><td><div class="action-buttons"><button class="edit-btn" onclick="openEditUserModal(' + user.id + ')">Edit</button><button class="delete-btn" onclick="deleteUser(' + user.id + ')">Delete</button></div></td></tr>';
+    });
+    tbody.innerHTML = rows;
+  }
+
   var badge = document.getElementById('userCountBadge');
   if (badge) badge.textContent = users.length + ' user' + (users.length !== 1 ? 's' : '');
 }
@@ -357,6 +379,7 @@ function filterUsersTable() {
   renderUsersTable(el ? el.value.toLowerCase().trim() : '');
 }
 
+// ===================== OPEN ADD USER MODAL ===================== (FIX 6)
 function openAddUserModal() {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
   editingUserId = null;
@@ -364,11 +387,17 @@ function openAddUserModal() {
   var mt = document.getElementById('modalTitle'); if (mt) mt.textContent = 'Add New User';
   var un = document.getElementById('userName'); if (un) un.value = '';
   var ue = document.getElementById('userEmail'); if (ue) ue.value = '';
-  var up = document.getElementById('userPassword'); if (up) up.value = '';
+  var up = document.getElementById('userPassword');
+  if (up) {
+    up.value = '';
+    up.placeholder = 'Enter password';
+  }
   var ur = document.getElementById('userRole'); if (ur) ur.value = 'Viewer';
   var m = document.getElementById('userModal'); if (m) m.classList.add('active');
+  setTimeout(function () { if (un) un.focus(); }, 150);
 }
 
+// ===================== OPEN EDIT USER MODAL ===================== (FIX 5)
 function openEditUserModal(userId) {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
   var user = users.find(function (u) { return u.id === userId; });
@@ -378,14 +407,20 @@ function openEditUserModal(userId) {
     var mt = document.getElementById('modalTitle'); if (mt) mt.textContent = 'Edit User';
     var un = document.getElementById('userName'); if (un) un.value = user.name;
     var ue = document.getElementById('userEmail'); if (ue) ue.value = user.email;
-    var up = document.getElementById('userPassword'); if (up) up.value = user.password;
+    var up = document.getElementById('userPassword');
+    if (up) {
+      up.value = '';
+      up.placeholder = 'Leave blank to keep current password';
+    }
     var ur = document.getElementById('userRole'); if (ur) ur.value = user.role;
     var m = document.getElementById('userModal'); if (m) m.classList.add('active');
+    setTimeout(function () { if (un) un.focus(); }, 150);
   }
 }
 
 function closeUserModal() { var m = document.getElementById('userModal'); if (m) m.classList.remove('active'); }
 
+// ===================== SAVE USER ===================== (FIX 4)
 function saveUser() {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
   var name = (document.getElementById('userName') || {}).value || '';
@@ -393,21 +428,82 @@ function saveUser() {
   var password = (document.getElementById('userPassword') || {}).value || '';
   var role = (document.getElementById('userRole') || {}).value || 'Viewer';
   name = name.trim(); email = email.trim(); password = password.trim();
-  if (!name || !email || !password) { showToast('Please fill in all fields.', 'error'); return; }
+
+  // Validation
+  if (!name || !email) { showToast('Name and email are required.', 'error'); return; }
+  if (!editingUserId && !password) { showToast('Password is required for new users.', 'error'); return; }
+
+  // Email uniqueness check
+  var emailLower = email.toLowerCase();
+  for (var k = 0; k < users.length; k++) {
+    if (users[k].id !== editingUserId && users[k].email.toLowerCase() === emailLower) {
+      showToast('Another user already has this email.', 'error');
+      return;
+    }
+  }
+
   if (editingUserId) {
     var user = users.find(function (u) { return u.id === editingUserId; });
-    if (user) { user.name = name; user.email = email; user.password = password; user.role = role; }
+    if (user) {
+      // Detect if editing self
+      var cu = getCurrentUser();
+      var wasSelf = ((cu.email && user.email === cu.email) || cu.name === user.name);
+
+      // Prevent demoting the last Admin
+      if (user.role === 'Admin' && role !== 'Admin') {
+        var admins = users.filter(function (u) { return u.role === 'Admin'; });
+        if (admins.length <= 1) {
+          showToast('Cannot change role — at least one Admin is required.', 'error');
+          return;
+        }
+      }
+
+      user.name = name;
+      user.email = email;
+      user.role = role;
+      if (password) user.password = password;  // only update if a new password was typed
+
+      // Sync currentUser if editing self
+      if (wasSelf) {
+        localStorage.setItem('currentUser', JSON.stringify({
+          name: name, role: role, email: email
+        }));
+        displayCurrentUser();
+        applyRolePermissions();
+      }
+    }
     showToast('User updated successfully!', 'success');
   } else {
     var newId = users.length > 0 ? Math.max.apply(null, users.map(function (u) { return u.id; })) + 1 : 1;
     users.push({ id: newId, name: name, email: email, password: password, role: role });
     showToast('User added successfully!', 'success');
   }
+
   saveUsersToStorage(); filterUsersTable(); updateDashboardStats(); renderRoleChips(); closeUserModal();
 }
 
+// ===================== DELETE USER ===================== (FIX 3)
 function deleteUser(userId) {
   if (getCurrentRole() !== 'Admin') { showToast('Only admins can manage users.', 'error'); return; }
+  var cu = getCurrentUser();
+  var target = users.find(function (u) { return u.id === userId; });
+  if (!target) return;
+
+  // Prevent deleting yourself
+  if ((cu.email && target.email === cu.email) || target.name === cu.name) {
+    showToast('You cannot delete your own account.', 'error');
+    return;
+  }
+
+  // Prevent deleting the last Admin
+  if (target.role === 'Admin') {
+    var admins = users.filter(function (u) { return u.role === 'Admin'; });
+    if (admins.length <= 1) {
+      showToast('Cannot delete the last Admin account.', 'error');
+      return;
+    }
+  }
+
   if (confirm('Are you sure you want to delete this user?')) {
     users = users.filter(function (u) { return u.id !== userId; });
     saveUsersToStorage(); filterUsersTable(); updateDashboardStats(); renderRoleChips();
@@ -432,7 +528,7 @@ function renderWorkflowPipeline() {
     var isLast = (i === config.stages.length - 1);
     var cls = isLast ? 'pipeline-node-approved' : 'pipeline-node-stage';
     var icon = isLast ? '✅' : '🔵';
-    html += '<div class="pipeline-node ' + cls + '">' + icon + ' ' + stage.completedStatus + '<br><small style="font-size:10px;opacity:0.8;">' + stage.role + '</small></div>';
+    html += '<div class="pipeline-node ' + cls + '">' + icon + ' ' + esc(stage.completedStatus) + '<br><small style="font-size:10px;opacity:0.8;">' + esc(stage.role) + '</small></div>';
   });
   el.innerHTML = html;
 }
@@ -446,16 +542,16 @@ function renderWorkflowStages() {
 
   config.stages.forEach(function (stage, i) {
     var isLast = (i === config.stages.length - 1);
-    html += '<div class="stage-card" data-stage-id="' + stage.id + '">';
+    html += '<div class="stage-card" data-stage-id="' + esc(stage.id) + '">';
     html += '<div class="stage-number">' + (i + 1) + '</div>';
     html += '<div class="stage-fields">';
 
     html += '<div class="stage-field"><label>Stage Name</label>';
-    html += '<input type="text" value="' + (stage.name || '') + '" onchange="onStageFieldChange(\'' + stage.id + '\', \'name\', this.value)" placeholder="e.g., Review" /></div>';
+    html += '<input type="text" value="' + esc(stage.name || '') + '" onchange="onStageFieldChange(\'' + stage.id + '\', \'name\', this.value)" placeholder="e.g., Review" /></div>';
 
     if (!isLast) {
       html += '<div class="stage-field"><label>Status Label</label>';
-      html += '<input type="text" value="' + (stage.completedStatus || '') + '" onchange="onStageFieldChange(\'' + stage.id + '\', \'completedStatus\', this.value)" placeholder="e.g., Reviewed" /></div>';
+      html += '<input type="text" value="' + esc(stage.completedStatus || '') + '" onchange="onStageFieldChange(\'' + stage.id + '\', \'completedStatus\', this.value)" placeholder="e.g., Reviewed" /></div>';
     } else {
       html += '<div class="stage-field"><label>Status Label</label>';
       html += '<input type="text" value="Approved" disabled style="background:#d1fae5;color:#065f46;font-weight:600;" />';
@@ -465,7 +561,7 @@ function renderWorkflowStages() {
     html += '<div class="stage-field"><label>Assigned Role</label>';
     html += '<select onchange="onStageRoleChange(\'' + stage.id + '\', this.value)">';
     approvalRoles.forEach(function (r) {
-      html += '<option value="' + r + '"' + (stage.role === r ? ' selected' : '') + '>' + r + '</option>';
+      html += '<option value="' + esc(r) + '"' + (stage.role === r ? ' selected' : '') + '>' + esc(r) + '</option>';
     });
     html += '<option value="__new__">+ Create New Role...</option>';
     html += '</select></div>';
@@ -545,6 +641,8 @@ function addWorkflowStage() {
   renderWorkflowBuilder();
   populateRoleDropdown();
   populateStatusFilter();
+  updateDashboardStats();
+  updateSnarfSummary();
   showToast('Stage added. Configure and save.', 'info');
 }
 
@@ -576,17 +674,29 @@ function moveStage(stageId, direction) {
 
 function saveWorkflow() {
   var config = getWorkflowConfig();
+
+  if (config.stages.length > 0) {
+    config.stages[config.stages.length - 1].completedStatus = 'Approved';
+  }
+
   var valid = true;
   config.stages.forEach(function (stage, i) {
     if (!stage.name || !stage.role) valid = false;
     if (i < config.stages.length - 1 && !stage.completedStatus) valid = false;
   });
-  if (!valid) { showToast('All stages must have a name, role, and status label.', 'error'); return; }
+
+  if (!valid) {
+    showToast('All stages must have a name, role, and status label.', 'error');
+    return;
+  }
 
   var statuses = [];
   for (var i = 0; i < config.stages.length; i++) {
     var st = config.stages[i].completedStatus;
-    if (statuses.indexOf(st) !== -1) { showToast('Duplicate status: "' + st + '". Each stage must have a unique status.', 'error'); return; }
+    if (statuses.indexOf(st) !== -1) {
+      showToast('Duplicate status: "' + st + '". Each stage must have a unique status.', 'error');
+      return;
+    }
     statuses.push(st);
   }
 
@@ -631,7 +741,7 @@ function renderRoleChips() {
     }
 
     html += '<div class="role-chip approval-role"' + style + '>';
-    html += '<div class="role-chip-info"><span class="role-chip-name">' + role + '</span>';
+    html += '<div class="role-chip-info"><span class="role-chip-name">' + esc(role) + '</span>';
     html += '<span class="role-chip-usage">' + usageText + '</span></div>';
     html += '<button class="role-chip-delete" onclick="deleteCustomRole(\'' + role.replace(/'/g, "\\'") + '\')" title="Delete role">✕</button>';
     html += '</div>';
@@ -759,12 +869,14 @@ function switchTab(tabName, btnElement) {
   if (btnElement) btnElement.classList.add('active');
   if (tabName === 'snarf-form') initializeSnarfForm();
   if (tabName === 'pendings') initializePendings();
-  if (tabName === 'home') updateDashboardStats();
+  if (tabName === 'home') { updateDashboardStats(); updateAllBadges(); }
   if (tabName === 'settings') { filterUsersTable(); renderWorkflowBuilder(); }
 }
 
+// ===================== LOGOUT ===================== (FIX 1)
 function logout() {
   showToast('Logging out...', 'info');
+  localStorage.removeItem('currentUser');
   setTimeout(function () { window.location.href = "index.html"; }, 1000);
 }
 
@@ -789,14 +901,19 @@ function saveTabVisibilitySettings() {
 }
 
 function loadTabVisibilitySettings() {
-  var stored = localStorage.getItem('tabVisibilitySettings');
-  if (!stored) return;
-  var s = JSON.parse(stored);
+  var s = safeParse('tabVisibilitySettings', null);
+  if (!s) return;
   for (var t in s) {
     var c = tabVisibilityMap[t]; if (!c) continue;
     var tog = document.getElementById(c.toggleId); if (tog) tog.checked = s[t];
     var btn = document.getElementById(c.tabBtnId);
-    if (btn) { if (s[t]) btn.classList.remove('hidden-tab'); else { btn.classList.add('hidden-tab'); if (btn.classList.contains('active')) switchTab('home', document.querySelector('.tab-btn')); } }
+    if (btn) {
+      if (s[t]) btn.classList.remove('hidden-tab');
+      else {
+        btn.classList.add('hidden-tab');
+        if (btn.classList.contains('active')) switchTab('home', document.querySelector('.tab-btn'));
+      }
+    }
   }
 }
 
@@ -846,7 +963,7 @@ function updateDashboardStats() {
   config.stages.forEach(function (stage, i) {
     if (i < config.stages.length - 1) {
       var count = subs.filter(function (s) { return s.status === stage.completedStatus; }).length;
-      html += '<div class="card"><div class="card-stat">' + count + '</div><h3>' + stage.completedStatus + '</h3><p>' + stage.name + ' by ' + stage.role + '</p></div>';
+      html += '<div class="card"><div class="card-stat">' + count + '</div><h3>' + esc(stage.completedStatus) + '</h3><p>' + esc(stage.name) + ' by ' + esc(stage.role) + '</p></div>';
     }
   });
 
@@ -863,8 +980,7 @@ var snarfRowsPerPage = 10;
 var snarfFilteredResults = [];
 
 function getSnarfSubmissions() {
-  var s = localStorage.getItem("snarfFormSubmissions");
-  return s ? JSON.parse(s) : [];
+  return safeParse('snarfFormSubmissions', []);
 }
 
 function saveSnarfSubmissions(subs) {
@@ -909,7 +1025,7 @@ function updateSnarfSummary() {
       var count = all.filter(function (s) { return s.status === stage.completedStatus; }).length;
       var ci = i % STAGE_COLORS.length;
       var c = STAGE_COLORS[ci];
-      html += '<div class="summary-card" style="background:' + c.bg + ';border-left:4px solid ' + c.border + ';"><span class="summary-count" style="color:' + c.border + ';">' + count + '</span><span class="summary-label" style="color:' + c.text + ';">' + stage.completedStatus + '</span></div>';
+      html += '<div class="summary-card" style="background:' + c.bg + ';border-left:4px solid ' + c.border + ';"><span class="summary-count" style="color:' + c.border + ';">' + count + '</span><span class="summary-label" style="color:' + c.text + ';">' + esc(stage.completedStatus) + '</span></div>';
     }
   });
 
@@ -998,26 +1114,41 @@ function addFormResultToTable(formData) {
   var status = formData.status || "Pending";
   var role = getCurrentRole();
   var statusHtml = getStatusBadgeHtml(status);
+  var fId = esc(formData.formId);
+  var ln = esc(formData.lastName);
+  var fn = esc(formData.firstName);
+  var mi = esc(formData.mi);
+  var of = esc(formData.office);
+  var tel = esc(formData.telephone);
+  var dt = esc(formData.date);
+  var pur = esc(formData.purpose);
+  var per = esc(formData.period);
+  var fd = esc(formData.fromDate || '');
+  var td2 = esc(formData.toDate || '');
   var cells = '';
 
   if (role === 'Viewer' || role === 'Submitter') {
-    cells = '<td><strong>' + formData.formId + '</strong></td><td>' + formData.lastName + '</td><td>' + formData.firstName + '</td><td>' + formData.mi + '</td><td>' + formData.office + '</td><td>' + formData.telephone + '</td><td>' + formData.date + '</td><td title="' + formData.purpose + '">' + formData.purpose + '</td><td>' + formData.period + '</td><td>' + (formData.fromDate || '') + '</td><td>' + (formData.toDate || '') + '</td><td>' + statusHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
+    cells = '<td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + statusHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + esc(formData.formId) + '\')">👁 View</button></td>';
   } else {
-    cells = '<td><input type="checkbox" class="row-checkbox" value="' + formData.formId + '" onclick="onRowCheckboxChange()" /></td><td><strong>' + formData.formId + '</strong></td><td>' + formData.lastName + '</td><td>' + formData.firstName + '</td><td>' + formData.mi + '</td><td>' + formData.office + '</td><td>' + formData.telephone + '</td><td>' + formData.date + '</td><td title="' + formData.purpose + '">' + formData.purpose + '</td><td>' + formData.period + '</td><td>' + (formData.fromDate || '') + '</td><td>' + (formData.toDate || '') + '</td><td>' + statusHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
+    cells = '<td><input type="checkbox" class="row-checkbox" value="' + fId + '" onclick="onRowCheckboxChange()" /></td><td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + statusHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + esc(formData.formId) + '\')">👁 View</button></td>';
   }
   row.innerHTML = cells;
   tbody.appendChild(row);
 }
 
 // ===================== GENERATE APPROVED ID =====================
-function generateApprovedId(originalId) {
+function generateApprovedId(originalId, liveSubs) {
   var year = new Date().getFullYear();
-  var subs = getSnarfSubmissions();
+  var subs = liveSubs || getSnarfSubmissions();
   var maxNum = 0;
   subs.forEach(function (s) {
     if (s.status === 'Approved' && s.formId) {
+      if (s.formId === originalId || s.originalFormId === originalId) return;
       var match = s.formId.match(/SNARF-\d{4}-(\d{5})$/);
-      if (match) { var num = parseInt(match[1], 10); if (num > maxNum) maxNum = num; }
+      if (match) {
+        var num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
     }
   });
   return 'SNARF-' + year + '-' + (maxNum + 1).toString().padStart(5, '0');
@@ -1037,19 +1168,19 @@ function viewSnarfDetail(formId) {
   var canEditConduct = (role === 'Admin' || canAction) && status !== 'Approved';
 
   var fields = [
-    { label: 'Form ID', value: '<strong>' + data.formId + '</strong>' },
-    { label: 'Original Form ID', value: data.originalFormId || data.formId },
-    { label: 'Last Name', value: data.lastName },
-    { label: 'First Name', value: data.firstName },
-    { label: 'M.I.', value: data.mi },
-    { label: 'Office/Service/Division', value: data.office },
-    { label: 'Telephone Number', value: data.telephone },
-    { label: 'Date Submitted', value: data.date },
-    { label: 'Purpose of Justification', value: data.purpose },
-    { label: 'Detailed Description', value: data.description || 'N/A' },
-    { label: 'Period of Use', value: data.period },
-    { label: 'From Date', value: data.fromDate || 'N/A' },
-    { label: 'To Date', value: data.toDate || 'N/A' },
+    { label: 'Form ID', value: '<strong>' + esc(data.formId) + '</strong>' },
+    { label: 'Original Form ID', value: esc(data.originalFormId || data.formId) },
+    { label: 'Last Name', value: esc(data.lastName) },
+    { label: 'First Name', value: esc(data.firstName) },
+    { label: 'M.I.', value: esc(data.mi) },
+    { label: 'Office/Service/Division', value: esc(data.office) },
+    { label: 'Telephone Number', value: esc(data.telephone) },
+    { label: 'Date Submitted', value: esc(data.date) },
+    { label: 'Purpose of Justification', value: esc(data.purpose) },
+    { label: 'Detailed Description', value: esc(data.description || 'N/A') },
+    { label: 'Period of Use', value: esc(data.period) },
+    { label: 'From Date', value: esc(data.fromDate || 'N/A') },
+    { label: 'To Date', value: esc(data.toDate || 'N/A') },
     { label: 'Status', value: getStatusBadgeHtml(status) }
   ];
 
@@ -1076,12 +1207,18 @@ function viewSnarfDetail(formId) {
       '<div class="conduct-check-item">' + ci(asRequested) + ' As Requested</div></div></div>';
   }
 
-  var d1c = data.firstTestCount || '', d1d = data.firstTestDate || '', d2c = data.secondTestCount || '', d2d = data.secondTestDate || '';
-  var d3c = data.thirdTestCount || '', d3d = data.thirdTestDate || '', d4c = data.fourthTestCount || '', d4d = data.fourthTestDate || '';
-  var h1c = data.firstHoles || '', h1d = data.firstHolesDate || '', h2c = data.secondHoles || '', h2d = data.secondHolesDate || '';
-  var h3c = data.thirdHoles || '', h3d = data.thirdHolesDate || '', h4c = data.fourthHoles || '', h4d = data.fourthHolesDate || '';
-  var w1c = data.firstWarnings || '', w1d = data.firstWarningsDate || '', w2c = data.secondWarnings || '', w2d = data.secondWarningsDate || '';
-  var w3c = data.thirdWarnings || '', w3d = data.thirdWarningsDate || '', w4c = data.fourthWarnings || '', w4d = data.fourthWarningsDate || '';
+  var d1c = esc(data.firstTestCount || ''),  d1d = esc(data.firstTestDate || '');
+  var d2c = esc(data.secondTestCount || ''), d2d = esc(data.secondTestDate || '');
+  var d3c = esc(data.thirdTestCount || ''),  d3d = esc(data.thirdTestDate || '');
+  var d4c = esc(data.fourthTestCount || ''), d4d = esc(data.fourthTestDate || '');
+  var h1c = esc(data.firstHoles || ''),  h1d = esc(data.firstHolesDate || '');
+  var h2c = esc(data.secondHoles || ''), h2d = esc(data.secondHolesDate || '');
+  var h3c = esc(data.thirdHoles || ''),  h3d = esc(data.thirdHolesDate || '');
+  var h4c = esc(data.fourthHoles || ''), h4d = esc(data.fourthHolesDate || '');
+  var w1c = esc(data.firstWarnings || ''),  w1d = esc(data.firstWarningsDate || '');
+  var w2c = esc(data.secondWarnings || ''), w2d = esc(data.secondWarningsDate || '');
+  var w3c = esc(data.thirdWarnings || ''),  w3d = esc(data.thirdWarningsDate || '');
+  var w4c = esc(data.fourthWarnings || ''), w4d = esc(data.fourthWarningsDate || '');
   var tHead = '<thead><tr><th></th><th>1st</th><th>Date</th><th>2nd</th><th>Date</th><th>3rd</th><th>Date</th><th>4th</th><th>Date</th></tr></thead>';
 
   if (canEditConduct) {
@@ -1103,11 +1240,11 @@ function viewSnarfDetail(formId) {
     for (var sh = 0; sh < data.stageHistory.length; sh++) {
       var stage = data.stageHistory[sh];
       var stageIcon = stage.to === 'Approved' ? '✅' : stage.to === 'Rejected' ? '❌' : '🔵';
-      html += '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">' + stageIcon + ' ' + stage.from + ' → ' + stage.to + '</div><div class="detail-value"><strong>' + stage.by + '</strong> (' + stage.role + ') — ' + formatActionedAt(stage.at) + '</div></div>';
+      html += '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">' + stageIcon + ' ' + esc(stage.from) + ' → ' + esc(stage.to) + '</div><div class="detail-value"><strong>' + esc(stage.by) + '</strong> (' + esc(stage.role) + ') — ' + formatActionedAt(stage.at) + '</div></div>';
       if (stage.to === 'Rejected' && (stage.reason || stage.category)) {
         html += '<div class="stage-reason-text">';
-        if (stage.category) html += '<span class="rejection-category-badge">' + stage.category + '</span> ';
-        html += (stage.reason || 'No reason provided.') + '</div>';
+        if (stage.category) html += '<span class="rejection-category-badge">' + esc(stage.category) + '</span> ';
+        html += esc(stage.reason || 'No reason provided.') + '</div>';
       }
     }
     html += '</div>';
@@ -1117,13 +1254,13 @@ function viewSnarfDetail(formId) {
     var sc = status === 'Rejected' ? 'rejected' : '';
     var al = status === 'Approved' ? '✅ Approved (Final)' : '❌ Rejected';
     html += '<div class="detail-actioned-section ' + sc + '"><div style="font-weight:bold;font-size:15px;margin-bottom:8px;">' + al + '</div>' +
-      '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Actioned By:</div><div class="detail-value"><strong>' + data.actionedBy + '</strong></div></div>' +
-      '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Role:</div><div class="detail-value">' + (data.actionedByRole || 'N/A') + '</div></div>' +
+      '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Actioned By:</div><div class="detail-value"><strong>' + esc(data.actionedBy) + '</strong></div></div>' +
+      '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Role:</div><div class="detail-value">' + esc(data.actionedByRole || 'N/A') + '</div></div>' +
       '<div class="detail-row" style="border:none;padding:5px 0;"><div class="detail-label">Date/Time:</div><div class="detail-value">' + formatActionedAt(data.actionedAt) + '</div></div></div>';
     if (status === 'Rejected' && (data.rejectReason || data.rejectCategory)) {
       html += '<div class="rejection-reason-display"><h4>📝 Rejection Reason</h4>';
-      if (data.rejectCategory) html += '<div class="rejection-category-badge">' + data.rejectCategory + '</div>';
-      html += '<div class="rejection-reason-text">' + (data.rejectReason || 'No reason provided.') + '</div></div>';
+      if (data.rejectCategory) html += '<div class="rejection-category-badge">' + esc(data.rejectCategory) + '</div>';
+      html += '<div class="rejection-reason-text">' + esc(data.rejectReason || 'No reason provided.') + '</div></div>';
     }
   } else if (!isActioned) {
     var nextStatus = getNextStatus(data);
@@ -1131,7 +1268,7 @@ function viewSnarfDetail(formId) {
     var idx = getNextStageIndex(data);
     var waitingRole = (idx >= 0 && idx < wfConfig.stages.length) ? wfConfig.stages[idx].role : 'N/A';
     var sectionClass = status === 'Pending' ? 'pending-section' : 'reviewed-section';
-    html += '<div class="detail-actioned-section ' + sectionClass + '"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">⏳ ' + status + '</div><div style="color:#92400e;font-size:13px;">Awaiting action from <strong>' + waitingRole + '</strong>' + (nextStatus ? ' → ' + nextStatus : '') + '</div></div>';
+    html += '<div class="detail-actioned-section ' + sectionClass + '"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">⏳ ' + esc(status) + '</div><div style="color:#92400e;font-size:13px;">Awaiting action from <strong>' + esc(waitingRole) + '</strong>' + (nextStatus ? ' → ' + esc(nextStatus) : '') + '</div></div>';
   }
 
   var modalBody = document.getElementById('detailModalBody');
@@ -1143,7 +1280,7 @@ function viewSnarfDetail(formId) {
   if (canAction && !isActioned) {
     var nextSt = getNextStatus(data);
     if (nextSt) {
-      var btnLabel = nextSt === 'Approved' ? '✔ Approve' : '🔵 ' + nextSt;
+      var btnLabel = nextSt === 'Approved' ? '✔ Approve' : '🔵 ' + esc(nextSt);
       var btnColor = nextSt === 'Approved' ? '' : ' style="background-color:#3b82f6;"';
       actionBarHtml += '<button class="detail-approve-btn"' + btnColor + ' onclick="advanceFromModal()">' + btnLabel + '</button>';
     }
@@ -1176,7 +1313,7 @@ function openRejectModal(mode, ids, source) {
   var confirmBtn = document.getElementById('rejectConfirmBtn'); if (confirmBtn) confirmBtn.disabled = true;
   var info = document.getElementById('rejectTargetInfo');
   if (info) {
-    if (rejectPendingIds.length === 1) info.innerHTML = 'Rejecting: <strong>' + rejectPendingIds[0] + '</strong>';
+    if (rejectPendingIds.length === 1) info.innerHTML = 'Rejecting: <strong>' + esc(rejectPendingIds[0]) + '</strong>';
     else info.innerHTML = 'Rejecting <strong>' + rejectPendingIds.length + ' submission(s)</strong>';
   }
   var modal = document.getElementById('rejectReasonModal'); if (modal) modal.classList.add('active');
@@ -1243,7 +1380,7 @@ function advanceSubmission(formId) {
 
   if (nextSt === 'Approved') {
     subs[i].originalFormId = subs[i].formId;
-    subs[i].formId = generateApprovedId(subs[i].formId);
+    subs[i].formId = generateApprovedId(subs[i].originalFormId, subs);
   }
 
   saveSnarfSubmissions(subs); refreshAll();
@@ -1361,7 +1498,7 @@ function bulkAction(action) {
     if (!s.stageHistory) s.stageHistory = [];
     s.stageHistory.push({ from: currentStatus, to: nextSt, by: cu.name, role: cu.role, at: new Date().toISOString() });
     s.status = nextSt; s.actionedBy = cu.name; s.actionedByRole = cu.role; s.actionedAt = new Date().toISOString();
-    if (nextSt === 'Approved') { s.originalFormId = s.formId; s.formId = generateApprovedId(s.formId); }
+    if (nextSt === 'Approved') { s.originalFormId = s.formId; s.formId = generateApprovedId(s.originalFormId, subs); }
     validCount++;
   });
   saveSnarfSubmissions(subs);
@@ -1408,7 +1545,7 @@ function toggleSelectAll(cb) {
 function onRowCheckboxChange() {
   var cbs = document.querySelectorAll('.row-checkbox');
   var sa = document.getElementById('selectAllCheckbox');
-  var allChecked = true;
+  var allChecked = cbs.length > 0;
   cbs.forEach(function (c) { if (!c.checked) allChecked = false; c.closest('tr').classList.toggle('selected-row', c.checked); });
   if (sa) sa.checked = allChecked;
   updateBulkButtons();
@@ -1425,6 +1562,7 @@ function updateBulkButtons() {
   var bd = document.getElementById('bulkDeleteBtn'); if (bd) bd.disabled = !h;
 }
 
+
 // ===================== EXPORT CSV =====================
 function exportSnarfToExcel() {
   var subs = getSnarfSubmissions();
@@ -1432,13 +1570,24 @@ function exportSnarfToExcel() {
   var headers = ["Form ID", "Original ID", "Last Name", "First Name", "M.I.", "Office/Division", "Telephone", "Date", "Purpose", "Description", "Period", "From Date", "To Date", "Status", "Reject Category", "Reject Reason", "Initial Conduct", "Regular Conduct", "As Requested", "1st Test Count", "1st Test Date", "2nd Test Count", "2nd Test Date", "3rd Test Count", "3rd Test Date", "4th Test Count", "4th Test Date", "1st Holes", "1st Holes Date", "2nd Holes", "2nd Holes Date", "3rd Holes", "3rd Holes Date", "4th Holes", "4th Holes Date", "1st Warnings", "1st Warnings Date", "2nd Warnings", "2nd Warnings Date", "3rd Warnings", "3rd Warnings Date", "4th Warnings", "4th Warnings Date", "Actioned By", "Actioned By Role", "Actioned At"];
   var csv = headers.map(function (h) { return '"' + h + '"'; }).join(",") + "\n";
   subs.forEach(function (s) {
-    csv += [s.formId, s.originalFormId || s.formId, s.lastName, s.firstName, s.mi, s.office, s.telephone, s.date, s.purpose, s.description, s.period, s.fromDate || '', s.toDate || '', s.status || 'Pending', s.rejectCategory || '', s.rejectReason || '', s.initialConduct ? 'Yes' : 'No', s.regularConduct ? 'Yes' : 'No', s.asRequested ? 'Yes' : 'No', s.firstTestCount || '', s.firstTestDate || '', s.secondTestCount || '', s.secondTestDate || '', s.thirdTestCount || '', s.thirdTestDate || '', s.fourthTestCount || '', s.fourthTestDate || '', s.firstHoles || '', s.firstHolesDate || '', s.secondHoles || '', s.secondHolesDate || '', s.thirdHoles || '', s.thirdHolesDate || '', s.fourthHoles || '', s.fourthHolesDate || '', s.firstWarnings || '', s.firstWarningsDate || '', s.secondWarnings || '', s.secondWarningsDate || '', s.thirdWarnings || '', s.thirdWarningsDate || '', s.fourthWarnings || '', s.fourthWarningsDate || '', s.actionedBy || '', s.actionedByRole || '', s.actionedAt ? formatActionedAt(s.actionedAt) : ''].map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(",") + "\n";
+    csv += [
+      s.formId, s.originalFormId || s.formId, s.lastName, s.firstName, s.mi, s.office, s.telephone, s.date, s.purpose, s.description, s.period, s.fromDate || '', s.toDate || '',
+      s.status || 'Pending', s.rejectCategory || '', s.rejectReason || '',
+      s.initialConduct ? 'Yes' : 'No', s.regularConduct ? 'Yes' : 'No', s.asRequested ? 'Yes' : 'No',
+      s.firstTestCount || '', s.firstTestDate || '', s.secondTestCount || '', s.secondTestDate || '', s.thirdTestCount || '', s.thirdTestDate || '', s.fourthTestCount || '', s.fourthTestDate || '',
+      s.firstHoles || '', s.firstHolesDate || '', s.secondHoles || '', s.secondHolesDate || '', s.thirdHoles || '', s.thirdHolesDate || '', s.fourthHoles || '', s.fourthHolesDate || '',
+      s.firstWarnings || '', s.firstWarningsDate || '', s.secondWarnings || '', s.secondWarningsDate || '', s.thirdWarnings || '', s.thirdWarningsDate || '', s.fourthWarnings || '', s.fourthWarningsDate || '',
+      s.actionedBy || '', s.actionedByRole || '', s.actionedAt ? formatActionedAt(s.actionedAt) : ''
+    ].map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(",") + "\n";
   });
   var blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  var link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+  var link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
   var now = new Date();
   link.download = 'SNARF_Submissions_' + now.getFullYear() + (now.getMonth() + 1).toString().padStart(2, '0') + now.getDate().toString().padStart(2, '0') + '_' + now.getHours().toString().padStart(2, '0') + now.getMinutes().toString().padStart(2, '0') + '.csv';
-  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
   showToast('Export downloaded successfully!', 'success');
 }
 
@@ -1450,7 +1599,8 @@ var pendingsFiltered = [];
 function initializePendings() {
   var searchEl = document.getElementById('pendingsSearchInput'); if (searchEl) searchEl.value = '';
   var sa = document.getElementById('pendingsSelectAll'); if (sa) sa.checked = false;
-  pendingsCurrentPage = 1; filterPendingsTable();
+  pendingsCurrentPage = 1;
+  filterPendingsTable();
 }
 
 function filterPendingsTable() {
@@ -1469,13 +1619,15 @@ function filterPendingsTable() {
   }
 
   pendingsFiltered = results.slice().reverse();
-  pendingsCurrentPage = 1; renderPendingsPage();
+  pendingsCurrentPage = 1;
+  renderPendingsPage();
   var el = document.getElementById('pendingsTotalCount');
   if (el) el.textContent = pendingsFiltered.length;
 }
 
 function renderPendingsPage() {
-  var tbody = document.getElementById("pendingsResultsBody"); if (!tbody) return;
+  var tbody = document.getElementById("pendingsResultsBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
   var sa = document.getElementById('pendingsSelectAll'); if (sa) sa.checked = false;
   updatePendingsBulkButtons();
@@ -1496,7 +1648,18 @@ function addPendingsRow(formData) {
   var row = document.createElement("tr");
   var status = formData.status || 'Pending';
   row.setAttribute("data-form-id", formData.formId);
-  row.innerHTML = '<td><input type="checkbox" class="pendings-checkbox" value="' + formData.formId + '" onclick="onPendingsCheckboxChange()" /></td><td><strong>' + formData.formId + '</strong></td><td>' + formData.lastName + '</td><td>' + formData.firstName + '</td><td>' + formData.mi + '</td><td>' + formData.office + '</td><td>' + formData.telephone + '</td><td>' + formData.date + '</td><td title="' + formData.purpose + '">' + formData.purpose + '</td><td>' + formData.period + '</td><td>' + (formData.fromDate || '') + '</td><td>' + (formData.toDate || '') + '</td><td>' + getStatusBadgeHtml(status) + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
+  var fId = esc(formData.formId);
+  var ln = esc(formData.lastName);
+  var fn = esc(formData.firstName);
+  var mi = esc(formData.mi);
+  var of = esc(formData.office);
+  var tel = esc(formData.telephone);
+  var dt = esc(formData.date);
+  var pur = esc(formData.purpose);
+  var per = esc(formData.period);
+  var fd = esc(formData.fromDate || '');
+  var td2 = esc(formData.toDate || '');
+  row.innerHTML = '<td><input type="checkbox" class="pendings-checkbox" value="' + fId + '" onclick="onPendingsCheckboxChange()" /></td><td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + getStatusBadgeHtml(status) + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + esc(formData.formId) + '\')">👁 View</button></td>';
   tbody.appendChild(row);
 }
 
@@ -1508,7 +1671,7 @@ function pendingsToggleSelectAll(cb) {
 function onPendingsCheckboxChange() {
   var cbs = document.querySelectorAll('.pendings-checkbox');
   var sa = document.getElementById('pendingsSelectAll');
-  var allChecked = true;
+  var allChecked = cbs.length > 0;
   cbs.forEach(function (c) { if (!c.checked) allChecked = false; c.closest('tr').classList.toggle('selected-row', c.checked); });
   if (sa) sa.checked = allChecked;
   updatePendingsBulkButtons();
@@ -1543,7 +1706,7 @@ function pendingsBulkAction(action) {
     if (!s.stageHistory) s.stageHistory = [];
     s.stageHistory.push({ from: currentStatus, to: nextSt, by: cu.name, role: cu.role, at: new Date().toISOString() });
     s.status = nextSt; s.actionedBy = cu.name; s.actionedByRole = cu.role; s.actionedAt = new Date().toISOString();
-    if (nextSt === 'Approved') { s.originalFormId = s.formId; s.formId = generateApprovedId(s.formId); }
+    if (nextSt === 'Approved') { s.originalFormId = s.formId; s.formId = generateApprovedId(s.originalFormId, subs); }
     validCount++;
   });
   saveSnarfSubmissions(subs);
@@ -1573,7 +1736,180 @@ function goToPendingsPage(p) {
   pendingsCurrentPage = p; renderPendingsPage();
 }
 
-// ===================== CLOSE MODALS ON BACKDROP =====================
-document.querySelectorAll('.modal').forEach(function (m) {
-  m.addEventListener('click', function (e) { if (e.target === this) this.classList.remove('active'); });
+// ===================== CLOSE MODALS ON BACKDROP (DELEGATED) =====================
+document.addEventListener('click', function (e) {
+  if (e.target && e.target.classList && e.target.classList.contains('modal') && e.target.classList.contains('active')) {
+    e.target.classList.remove('active');
+  }
+});
+
+// ===================== SEARCH DEBOUNCE =====================
+var _snarfSearchTimer, _pendingsSearchTimer, _usersSearchTimer;
+
+function debouncedFilterSnarf() {
+  clearTimeout(_snarfSearchTimer);
+  _snarfSearchTimer = setTimeout(filterSnarfTable, 200);
+}
+
+function debouncedFilterPendings() {
+  clearTimeout(_pendingsSearchTimer);
+  _pendingsSearchTimer = setTimeout(filterPendingsTable, 200);
+}
+
+function debouncedFilterUsers() {
+  clearTimeout(_usersSearchTimer);
+  _usersSearchTimer = setTimeout(filterUsersTable, 200);
+}
+
+// ===================== PROFILE EDIT =====================
+function openProfileModal() {
+  var cu = getCurrentUser();
+  var fullUser = users.find(function (u) {
+    return (cu.email && u.email === cu.email) || u.name === cu.name;
+  });
+
+  var nameEl = document.getElementById('profileName');
+  var emailEl = document.getElementById('profileEmail');
+  var curEl = document.getElementById('profileCurrentPassword');
+  var newEl = document.getElementById('profileNewPassword');
+  var confEl = document.getElementById('profileConfirmPassword');
+  var valMsg = document.getElementById('profileValidationMsg');
+  var strength = document.getElementById('profilePasswordStrength');
+
+  if (nameEl) nameEl.value = cu.name || '';
+  if (emailEl) emailEl.value = (fullUser && fullUser.email) || cu.email || '';
+  if (curEl) curEl.value = '';
+  if (newEl) newEl.value = '';
+  if (confEl) confEl.value = '';
+  if (valMsg) { valMsg.textContent = ''; valMsg.classList.remove('visible'); }
+  if (strength) { strength.style.display = 'none'; strength.textContent = ''; }
+
+  var m = document.getElementById('profileModal');
+  if (m) m.classList.add('active');
+  setTimeout(function () { if (nameEl) nameEl.focus(); }, 150);
+}
+
+function closeProfileModal() {
+  var m = document.getElementById('profileModal');
+  if (m) m.classList.remove('active');
+}
+
+function onProfilePasswordInput() {
+  var newEl = document.getElementById('profileNewPassword');
+  var strength = document.getElementById('profilePasswordStrength');
+  if (!newEl || !strength) return;
+  var val = newEl.value;
+  if (!val) { strength.style.display = 'none'; return; }
+  strength.style.display = 'block';
+  var score = 0;
+  if (val.length >= 4) score++;
+  if (val.length >= 8) score++;
+  if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
+  if (/\d/.test(val)) score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+  var labels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+  var colors = ['#ef4444', '#f59e0b', '#eab308', '#84cc16', '#10b981'];
+  var idx = Math.min(score, 4);
+  strength.textContent = '🔒 Strength: ' + labels[idx];
+  strength.style.color = colors[idx];
+  strength.style.fontSize = '12px';
+  strength.style.fontWeight = '600';
+  strength.style.marginTop = '4px';
+}
+
+function saveProfile() {
+  var cu = getCurrentUser();
+  var nameEl = document.getElementById('profileName');
+  var curEl = document.getElementById('profileCurrentPassword');
+  var newEl = document.getElementById('profileNewPassword');
+  var confEl = document.getElementById('profileConfirmPassword');
+  var valMsg = document.getElementById('profileValidationMsg');
+
+  var newName = nameEl ? nameEl.value.trim() : '';
+  var curPwd = curEl ? curEl.value : '';
+  var newPwd = newEl ? newEl.value : '';
+  var confPwd = confEl ? confEl.value : '';
+
+  var showError = function (msg) {
+    if (valMsg) {
+      valMsg.textContent = '⚠ ' + msg;
+      valMsg.classList.add('visible');
+      valMsg.style.color = '#dc2626';
+    }
+  };
+
+  if (!newName) { showError('Name cannot be empty.'); if (nameEl) nameEl.focus(); return; }
+  if (!curPwd) { showError('Current password is required to save changes.'); if (curEl) curEl.focus(); return; }
+
+  // Find current user record
+  var idx = -1;
+  for (var i = 0; i < users.length; i++) {
+    if ((cu.email && users[i].email === cu.email) || users[i].name === cu.name) {
+      idx = i; break;
+    }
+  }
+  if (idx === -1) { showError('Could not locate your user account.'); return; }
+
+  // Verify current password
+  if (users[idx].password !== curPwd) {
+    showError('Current password is incorrect.');
+    if (curEl) { curEl.focus(); curEl.select(); }
+    return;
+  }
+
+  // If new password provided, validate it
+  if (newPwd) {
+    if (newPwd.length < 4) { showError('New password must be at least 4 characters.'); if (newEl) newEl.focus(); return; }
+    if (newPwd !== confPwd) { showError('New password and confirmation do not match.'); if (confEl) { confEl.focus(); confEl.select(); } return; }
+    if (newPwd === curPwd) { showError('New password must be different from the current password.'); if (newEl) newEl.focus(); return; }
+  }
+
+  // Check name collision with other users (case-insensitive)
+  var nameLower = newName.toLowerCase();
+  for (var j = 0; j < users.length; j++) {
+    if (j !== idx && users[j].name.toLowerCase() === nameLower) {
+      showError('Another user already has this name.');
+      if (nameEl) nameEl.focus();
+      return;
+    }
+  }
+
+  // Apply changes
+  users[idx].name = newName;
+  if (newPwd) users[idx].password = newPwd;
+  saveUsersToStorage();
+
+  // Update currentUser in localStorage
+  var updatedCurrent = {
+    name: newName,
+    role: users[idx].role,
+    email: users[idx].email
+  };
+  localStorage.setItem('currentUser', JSON.stringify(updatedCurrent));
+
+  // Refresh UI
+  displayCurrentUser();
+  applyRolePermissions();
+  filterUsersTable();
+  renderRoleChips();
+
+  closeProfileModal();
+
+  var msg = newPwd
+    ? 'Profile updated! Name and password changed successfully.'
+    : 'Profile updated! Name changed successfully.';
+  showToast(msg, 'success');
+}
+
+// ===================== GLOBAL ESCAPE-TO-CLOSE FOR MODALS =====================
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  var open = document.querySelector('.modal.active');
+  if (!open) return;
+  var id = open.id;
+  if (id === 'userModal') closeUserModal();
+  else if (id === 'rejectReasonModal') closeRejectModal();
+  else if (id === 'newRoleModal') closeNewRoleModal();
+  else if (id === 'profileModal') closeProfileModal();
+  else if (id === 'detailModal') closeDetailModal();
 });
