@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
 
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,8 +10,30 @@
   <meta name="description" content="SNARF Dashboard - Multi-stage approval workflow system" />
   <link rel="icon" href="favicon.ico" />
   <title>Dashboard</title>
+
+  <!-- ===== AUTH GUARD: redirect if not signed in ===== -->
+  <script>
+    (function () {
+      try {
+        var user = localStorage.getItem('currentUser');
+        if (!user) {
+          window.location.replace('unauthorized.html');
+          return;
+        }
+        // Optional: also reject malformed/empty user
+        var parsed = JSON.parse(user);
+        if (!parsed || !parsed.name) {
+          window.location.replace('unauthorized.html');
+        }
+      } catch (e) {
+        window.location.replace('unauthorized.html');
+      }
+    })();
+  </script>
+
   <link rel="stylesheet" href="css/dashboard.css" />
 </head>
+
 
 <body>
 
