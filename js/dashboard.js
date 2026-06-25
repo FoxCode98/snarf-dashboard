@@ -302,6 +302,7 @@ window.addEventListener('DOMContentLoaded', function () {
   updateAllBadges();
   loadTabVisibilitySettings();
   applyRolePermissions();
+  loadResourcesUI();
   try {
     filterSnarfTable();
     updateSnarfSummary();
@@ -863,7 +864,7 @@ function switchTab(tabName, btnElement) {
   if (tabName === 'snarf-form') initializeSnarfForm();
   if (tabName === 'pendings') initializePendings();
   if (tabName === 'home') { updateDashboardStats(); updateAllBadges(); }
-  if (tabName === 'settings') { filterUsersTable(); renderWorkflowBuilder(); }
+  if (tabName === 'settings') { filterUsersTable(); renderWorkflowBuilder(); loadResourcesUI(); }
 }
 
 
@@ -1170,6 +1171,8 @@ function renderAttachmentsHtml(attachments) {
   return html;
 }
 
+
+
 function viewAttachment(formId, index) {
   var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
   if (!data || !data.attachments || !data.attachments[index]) return;
@@ -1183,6 +1186,7 @@ function viewAttachment(formId, index) {
     win.document.write('<title>' + esc(f.name) + '</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="' + f.dataUrl + '" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>');
   }
 }
+
 
 function downloadAttachment(formId, index) {
   var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
@@ -1959,6 +1963,7 @@ function saveProfile() {
   showToast(msg, 'success');
 }
 
+
 // ===================== GLOBAL ESCAPE-TO-CLOSE FOR MODALS =====================
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
@@ -1970,9 +1975,8 @@ document.addEventListener('keydown', function (e) {
   else if (id === 'newRoleModal') closeNewRoleModal();
   else if (id === 'profileModal') closeProfileModal();
   else if (id === 'detailModal') closeDetailModal();
+});
 
-
-  
 // ===================== AUTO-REFRESH ON FOCUS =====================
 window.addEventListener('focus', function () {
   var active = document.querySelector('.tab-content.active');
@@ -1983,4 +1987,171 @@ window.addEventListener('focus', function () {
   }
 });
 
-});
+// ===================== LANDING PAGE RESOURCES =====================
+var pendingResourceFile = null;
+
+function getResourcesData() {
+  return safeParse('landingResources', { announcement: '', files: [] });
+}
+
+function saveResourcesData(data) {
+  try {
+    localStorage.setItem('landingResources', JSON.stringify(data));
+    return true;
+  } catch (e) {
+    showToast('Storage full. Remove old resources first.', 'error');
+    return false;
+  }
+}
+
+function loadResourcesUI() {
+  var data = getResourcesData();
+  var ann = document.getElementById('landingAnnouncement');
+  if (ann) ann.value = data.announcement || '';
+  renderResourcesList();
+}
+
+function saveAnnouncement() {
+  var ann = document.getElementById('landingAnnouncement');
+  var data = getResourcesData();
+  data.announcement = ann ? ann.value.trim() : '';
+  if (saveResourcesData(data)) {
+    showToast('Announcement saved!', 'success');
+  }
+}
+
+function onResourceFileSelected(event) {
+  var file = event.target.files[0];
+  var label = document.getElementById('resourceFileName');
+  var btn = document.getElementById('addResourceBtn');
+
+  if (!file) {
+    pendingResourceFile = null;
+    if (label) label.textContent = 'No file selected (max 3MB)';
+    if (btn) btn.disabled = true;
+    return;
+  }
+
+  var MAX = 3 * 1024 * 1024; // 3 MB
+  if (file.size > MAX) {
+    showToast('File exceeds 3MB limit.', 'error');
+    event.target.value = '';
+    return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var ext = file.name.split('.').pop().toLowerCase();
+    pendingResourceFile = {
+      name: file.name,
+      size: file.size,
+      type: file.type || ext,
+      ext: ext,
+      dataUrl: e.target.result
+    };
+    if (label) {
+      var kb = (file.size / 1024).toFixed(1);
+      var sizeText = file.size > 1024 * 1024
+        ? (file.size / 1024 / 1024).toFixed(2) + ' MB'
+        : kb + ' KB';
+      label.textContent = file.name + ' (' + sizeText + ')';
+      label.style.color = '#4f46e5';
+    }
+    if (btn) btn.disabled = false;
+  };
+  reader.onerror = function () {
+    showToast('Failed to read file.', 'error');
+  };
+  reader.readAsDataURL(file);
+}
+
+function addResource() {
+  if (!pendingResourceFile) { showToast('Please choose a file first.', 'error'); return; }
+
+  var descEl = document.getElementById('resourceDescription');
+  var description = descEl ? descEl.value.trim() : '';
+
+  var cu = getCurrentUser();
+  var data = getResourcesData();
+  data.files = data.files || [];
+  data.files.push({
+    id: 'res-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+    name: pendingResourceFile.name,
+    size: pendingResourceFile.size,
+    ext: pendingResourceFile.ext,
+    type: pendingResourceFile.type,
+    dataUrl: pendingResourceFile.dataUrl,
+    description: description,
+    uploadedBy: cu.name,
+    uploadedAt: new Date().toISOString()
+  });
+
+  if (saveResourcesData(data)) {
+    showToast('Resource added!', 'success');
+    // Reset form
+    pendingResourceFile = null;
+    var fileInput = document.getElementById('resourceFileInput');
+    if (fileInput) fileInput.value = '';
+    var label = document.getElementById('resourceFileName');
+    if (label) { label.textContent = 'No file selected (max 3MB)'; label.style.color = '#6b7280'; }
+    if (descEl) descEl.value = '';
+    var addBtn = document.getElementById('addResourceBtn');
+    if (addBtn) addBtn.disabled = true;
+    renderResourcesList();
+  }
+}
+
+function deleteResource(id) {
+  if (!confirm('Delete this resource? End users will no longer see it.')) return;
+  var data = getResourcesData();
+  data.files = (data.files || []).filter(function (f) { return f.id !== id; });
+  if (saveResourcesData(data)) {
+    showToast('Resource deleted.', 'warning');
+    renderResourcesList();
+  }
+}
+
+function renderResourcesList() {
+  var container = document.getElementById('resourcesList');
+  var badge = document.getElementById('resourceCountBadge');
+  if (!container) return;
+
+  var data = getResourcesData();
+  var files = data.files || [];
+
+  if (badge) badge.textContent = '(' + files.length + ')';
+
+  if (files.length === 0) {
+    container.innerHTML = '<div style="color:#94a3b8;font-style:italic;font-size:13px;padding:12px;text-align:center;">No resources uploaded yet.</div>';
+    return;
+  }
+
+  var html = '';
+  files.forEach(function (f) {
+    var ext = (f.ext || '').toLowerCase();
+    var iconClass = 'other', icon = '📄';
+    if (ext === 'pdf') { iconClass = 'pdf'; icon = '📄'; }
+    else if (ext === 'xlsx' || ext === 'xls') { iconClass = 'xls'; icon = '📊'; }
+    else if (ext === 'docx' || ext === 'doc') { iconClass = 'doc'; icon = '📝'; }
+    else if (ext === 'pptx' || ext === 'ppt') { iconClass = 'ppt'; icon = '📈'; }
+    else if (ext === 'jpeg' || ext === 'jpg' || ext === 'png') { iconClass = 'img'; icon = '🖼️'; }
+
+    var sizeText = f.size > 1024 * 1024
+      ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
+      : (f.size / 1024).toFixed(1) + ' KB';
+
+    var when = f.uploadedAt ? new Date(f.uploadedAt).toLocaleDateString() : '';
+
+    html += '<div class="resource-item-admin">' +
+      '<div class="res-icon ' + iconClass + '">' + icon + '</div>' +
+      '<div class="res-info">' +
+        '<div class="res-name">' + esc(f.name) + '</div>' +
+        (f.description ? '<div class="res-desc">' + esc(f.description) + '</div>' : '') +
+        '<div class="res-meta">' + sizeText + ' • ' + esc(f.uploadedBy || 'Unknown') + ' • ' + esc(when) + '</div>' +
+      '</div>' +
+      '<button class="res-delete" onclick="deleteResource(\'' + f.id + '\')">🗑 Delete</button>' +
+    '</div>';
+  });
+  container.innerHTML = html;
+}
+
