@@ -239,7 +239,6 @@ function applyRolePermissions() {
 
   if (role === 'Admin') return;
 
-  
   if (isApprovalRole(role)) {
     hideEl('userMgmtCard');
     hideEl('workflowCard');
@@ -248,7 +247,6 @@ function applyRolePermissions() {
     hideEl('newSnarfFormBtn');
     return;
   }
-
 
   if (role === 'Submitter') {
     hideEl('analyticsTabBtn');
@@ -867,13 +865,10 @@ function switchTab(tabName, btnElement) {
   if (tabName === 'settings') { filterUsersTable(); renderWorkflowBuilder(); loadResourcesUI(); }
 }
 
-
 // ===================== OPEN SNARF FORM =====================
 function openSnarfForm() {
   window.open('snarfform.html', '_blank');
 }
-
-
 
 // ===================== LOGOUT =====================
 function logout() {
@@ -1140,38 +1135,202 @@ function addFormResultToTable(formData) {
 
 // ===================== ATTACHMENTS RENDERING =====================
 function renderAttachmentsHtml(attachments) {
-  if (!attachments || attachments.length === 0) {
-    return '<div style="color:#6b7280;font-style:italic;font-size:13px;">No attachments.</div>';
+  // Determine if user can manage attachments
+  var data = getSnarfSubmissions().find(function (s) { return s.formId === currentDetailFormId; });
+  var canManage = false;
+  if (data) {
+    var status = data.status || 'Pending';
+    var isLocked = (status === 'Approved' || status === 'Rejected');
+    var role = getCurrentRole();
+    var canAction = canRoleActionSubmission(role, data);
+    canManage = !isLocked && (role === 'Admin' || canAction);
   }
-  var html = '<div class="attachments-list">';
-  attachments.forEach(function (f, i) {
-    var ext = (f.ext || '').toLowerCase();
-    var iconClass = 'image', icon = '🖼️';
-    if (ext === 'pdf') { iconClass = 'pdf'; icon = '📄'; }
-    else if (ext === 'pptx') { iconClass = 'pptx'; icon = '📊'; }
 
-    var sizeText = f.size > 1024 * 1024
-      ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
-      : (f.size / 1024).toFixed(1) + ' KB';
+  var html = '';
+  var count = (attachments && attachments.length) ? attachments.length : 0;
 
-    var canView = (ext === 'pdf' || ext === 'jpeg' || ext === 'jpg' || ext === 'png');
+  if (count === 0) {
+    html += '<div style="color:#6b7280;font-style:italic;font-size:13px;">No attachments.</div>';
+  } else {
+    html += '<div class="attachments-list">';
+    attachments.forEach(function (f, i) {
+      var ext = (f.ext || '').toLowerCase();
+      var iconClass = 'image', icon = '🖼️';
+      if (ext === 'pdf') { iconClass = 'pdf'; icon = '📄'; }
+      else if (ext === 'pptx') { iconClass = 'pptx'; icon = '📊'; }
 
-    html += '<div class="attachment-item">';
-    html += '<div class="attachment-icon ' + iconClass + '">' + icon + '</div>';
-    html += '<div class="attachment-info"><div class="attachment-name">' + esc(f.name) + '</div>';
-    html += '<div class="attachment-size">' + sizeText + '</div></div>';
-    html += '<div class="attachment-actions">';
-    if (canView) {
-      html += '<button type="button" class="attachment-btn attachment-btn-view" onclick="viewAttachment(\'' + currentDetailFormId + '\', ' + i + ')">👁 View</button>';
+      var sizeText = f.size > 1024 * 1024
+        ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
+        : (f.size / 1024).toFixed(1) + ' KB';
+
+      var canView = (ext === 'pdf' || ext === 'jpeg' || ext === 'jpg' || ext === 'png');
+
+      html += '<div class="attachment-item">';
+      html += '<div class="attachment-icon ' + iconClass + '">' + icon + '</div>';
+      html += '<div class="attachment-info"><div class="attachment-name">' + esc(f.name) + '</div>';
+      html += '<div class="attachment-size">' + sizeText + '</div></div>';
+      html += '<div class="attachment-actions">';
+      if (canView) {
+        html += '<button type="button" class="attachment-btn attachment-btn-view" onclick="viewAttachment(\'' + currentDetailFormId + '\', ' + i + ')">👁 View</button>';
+      }
+      html += '<button type="button" class="attachment-btn attachment-btn-download" onclick="downloadAttachment(\'' + currentDetailFormId + '\', ' + i + ')">⬇ Download</button>';
+      if (canManage) {
+        html += '<button type="button" class="attachment-btn attachment-btn-replace" onclick="triggerReplaceAttachment(' + i + ')">🔄 Replace</button>';
+        html += '<button type="button" class="attachment-btn attachment-btn-download" style="background:#ef4444;" onmouseover="this.style.background=\'#dc2626\'" onmouseout="this.style.background=\'#ef4444\'" onclick="removeAttachmentFromSubmission(' + i + ')">🗑 Remove</button>';
+      }
+      html += '</div></div>';
+    });
+    html += '</div>';
+  }
+
+  // Add "Add More" section if user can manage and under limit
+  if (canManage) {
+    var MAX = 3;
+    var atLimit = count >= MAX;
+    html += '<div class="add-attachment-section">';
+    html += '<input type="file" id="addAttachmentInput" accept=".pdf,.pptx,.jpeg,.jpg,.png" style="display:none;" onchange="onAddAttachmentSelected(event)" />';
+    html += '<input type="file" id="replaceAttachmentInput" accept=".pdf,.pptx,.jpeg,.jpg,.png" style="display:none;" onchange="onReplaceAttachmentSelected(event)" />';
+    if (atLimit) {
+      html += '<button type="button" class="add-attachment-btn" disabled>+ Add More (Maximum reached)</button>';
+      html += '<div class="attachment-hint">Maximum ' + MAX + ' files. Remove or replace existing files to add more.</div>';
+    } else {
+      html += '<button type="button" class="add-attachment-btn" onclick="document.getElementById(\'addAttachmentInput\').click()">+ Add More Files</button>';
+      html += '<div class="attachment-hint">Allowed: PDF, PPTX, JPEG, PNG • Max 2MB each • ' + count + ' of ' + MAX + ' used</div>';
     }
-    html += '<button type="button" class="attachment-btn attachment-btn-download" onclick="downloadAttachment(\'' + currentDetailFormId + '\', ' + i + ')">⬇ Download</button>';
-    html += '</div></div>';
-  });
-  html += '</div>';
+    html += '</div>';
+  }
+
   return html;
 }
 
+// ===================== ATTACHMENT MANAGEMENT =====================
+var replaceAttachmentIndex = -1;
+var ATTACHMENT_MAX_SIZE = 2 * 1024 * 1024;   // 2 MB
+var ATTACHMENT_MAX_COUNT = 3;
+var ATTACHMENT_ALLOWED_EXT = ['pdf', 'pptx', 'jpeg', 'jpg', 'png'];
 
+function validateAttachmentFile(file) {
+  if (!file) return 'No file selected.';
+  var ext = file.name.split('.').pop().toLowerCase();
+  if (ATTACHMENT_ALLOWED_EXT.indexOf(ext) === -1) {
+    return '"' + file.name + '" type not allowed. Use PDF, PPTX, JPEG, or PNG.';
+  }
+  if (file.size > ATTACHMENT_MAX_SIZE) {
+    return '"' + file.name + '" exceeds 2MB limit.';
+  }
+  return null;
+}
+
+function readFileAsAttachment(file, onSuccess) {
+  var ext = file.name.split('.').pop().toLowerCase();
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    onSuccess({
+      name: file.name,
+      size: file.size,
+      type: file.type || ext,
+      ext: ext,
+      dataUrl: e.target.result
+    });
+  };
+  reader.onerror = function () {
+    showToast('Failed to read "' + file.name + '".', 'error');
+  };
+  reader.readAsDataURL(file);
+}
+
+function onAddAttachmentSelected(event) {
+  var file = event.target.files[0];
+  event.target.value = '';
+  if (!file || !currentDetailFormId) return;
+
+  var error = validateAttachmentFile(file);
+  if (error) { showToast(error, 'error'); return; }
+
+  var subs = getSnarfSubmissions();
+  var i = -1;
+  for (var x = 0; x < subs.length; x++) {
+    if (subs[x].formId === currentDetailFormId) { i = x; break; }
+  }
+  if (i === -1) return;
+
+  subs[i].attachments = subs[i].attachments || [];
+  if (subs[i].attachments.length >= ATTACHMENT_MAX_COUNT) {
+    showToast('Maximum ' + ATTACHMENT_MAX_COUNT + ' attachments reached.', 'error');
+    return;
+  }
+
+  readFileAsAttachment(file, function (newFile) {
+    subs[i].attachments.push(newFile);
+    try {
+      saveSnarfSubmissions(subs);
+      showToast('Attachment added.', 'success');
+      viewSnarfDetail(currentDetailFormId);
+    } catch (e) {
+      showToast('Storage full. Remove some files first.', 'error');
+    }
+  });
+}
+
+function triggerReplaceAttachment(index) {
+  replaceAttachmentIndex = index;
+  var inp = document.getElementById('replaceAttachmentInput');
+  if (inp) inp.click();
+}
+
+function onReplaceAttachmentSelected(event) {
+  var file = event.target.files[0];
+  event.target.value = '';
+  if (!file || !currentDetailFormId || replaceAttachmentIndex < 0) return;
+
+  var error = validateAttachmentFile(file);
+  if (error) { showToast(error, 'error'); replaceAttachmentIndex = -1; return; }
+
+  var subs = getSnarfSubmissions();
+  var i = -1;
+  for (var x = 0; x < subs.length; x++) {
+    if (subs[x].formId === currentDetailFormId) { i = x; break; }
+  }
+  if (i === -1) { replaceAttachmentIndex = -1; return; }
+
+  if (!subs[i].attachments || !subs[i].attachments[replaceAttachmentIndex]) {
+    replaceAttachmentIndex = -1;
+    return;
+  }
+
+  var oldName = subs[i].attachments[replaceAttachmentIndex].name;
+
+  readFileAsAttachment(file, function (newFile) {
+    subs[i].attachments[replaceAttachmentIndex] = newFile;
+    try {
+      saveSnarfSubmissions(subs);
+      showToast('Replaced "' + oldName + '" with "' + newFile.name + '".', 'success');
+      replaceAttachmentIndex = -1;
+      viewSnarfDetail(currentDetailFormId);
+    } catch (e) {
+      showToast('Storage full. Remove some files first.', 'error');
+      replaceAttachmentIndex = -1;
+    }
+  });
+}
+
+function removeAttachmentFromSubmission(index) {
+  if (!currentDetailFormId) return;
+  var subs = getSnarfSubmissions();
+  var i = -1;
+  for (var x = 0; x < subs.length; x++) {
+    if (subs[x].formId === currentDetailFormId) { i = x; break; }
+  }
+  if (i === -1 || !subs[i].attachments || !subs[i].attachments[index]) return;
+
+  var name = subs[i].attachments[index].name;
+  if (!confirm('Remove "' + name + '"? This cannot be undone.')) return;
+
+  subs[i].attachments.splice(index, 1);
+  saveSnarfSubmissions(subs);
+  showToast('Removed "' + name + '".', 'warning');
+  viewSnarfDetail(currentDetailFormId);
+}
 
 function viewAttachment(formId, index) {
   var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
@@ -1181,12 +1340,11 @@ function viewAttachment(formId, index) {
   if (!win) { showToast('Pop-up blocked. Allow pop-ups to view.', 'error'); return; }
   var ext = (f.ext || '').toLowerCase();
   if (ext === 'pdf') {
-    win.document.write('<title>' + esc(f.name) + '</title><iframe src="' + f.dataUrl + '" style="border:0;width:100vw;height:100vh;"></iframe>');
+    win.document.write('<title>' + esc(f.name) + '</title>' + f.dataUrl + '0;width:100vw;height:100vh;"></iframe>');
   } else {
-    win.document.write('<title>' + esc(f.name) + '</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="' + f.dataUrl + '" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>');
+    win.document.write('<title>' + esc(f.name) + '</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;">' + f.dataUrl + '-width:100%;max-height:100vh;object-fit:contain;" /></body>');
   }
 }
-
 
 function downloadAttachment(formId, index) {
   var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
@@ -1582,7 +1740,6 @@ function deleteSnarfSubmission(formId) {
   refreshAll(); showToast(formId + ' deleted.', 'error');
 }
 
-
 // ===================== PAGINATION =====================
 function renderPagination(totalPages) {
   var c = document.getElementById('snarfPagination'); if (!c) return;
@@ -1963,7 +2120,6 @@ function saveProfile() {
   showToast(msg, 'success');
 }
 
-
 // ===================== GLOBAL ESCAPE-TO-CLOSE FOR MODALS =====================
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
@@ -2088,7 +2244,6 @@ function addResource() {
 
   if (saveResourcesData(data)) {
     showToast('Resource added!', 'success');
-    // Reset form
     pendingResourceFile = null;
     var fileInput = document.getElementById('resourceFileInput');
     if (fileInput) fileInput.value = '';
