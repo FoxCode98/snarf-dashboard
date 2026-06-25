@@ -256,6 +256,8 @@ function applyRolePermissions() {
     hideEl('bulkRejectBtn');
     hideEl('bulkDeleteBtn');
     hideEl('thCheckboxCol');
+    hideEl('snarfSummaryContainer');
+    hideEl('snarfSummaryContainer');
     var nr = document.getElementById('viewerNoticeRole'); if (nr) nr.textContent = 'Submitter';
     var n = document.getElementById('viewerNotice'); if (n) n.classList.add('visible');
     return;
@@ -268,6 +270,8 @@ function applyRolePermissions() {
   hideEl('bulkRejectBtn');
   hideEl('bulkDeleteBtn');
   hideEl('thCheckboxCol');
+  hideEl('snarfSummaryContainer');
+    hideEl('snarfSummaryContainer');
   var nr2 = document.getElementById('viewerNoticeRole'); if (nr2) nr2.textContent = role;
   var n2 = document.getElementById('viewerNotice'); if (n2) n2.classList.add('visible');
 }
