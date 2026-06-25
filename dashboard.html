@@ -219,9 +219,51 @@
             <button type="button" class="profile-edit-btn" onclick="openProfileModal()">Edit</button>
           </div>
         </div>
+
+        <!-- Landing Page Resources -->
+        <div class="settings-card" id="resourcesCard">
+          <div class="settings-card-header">
+            <div>
+              <h3>&#128229; Landing Page Resources</h3>
+              <p>Upload files and announcements that end users see on the landing page.</p>
+            </div>
+          </div>
+
+          <!-- Announcement -->
+          <div class="form-group" style="margin-bottom:20px;">
+            <label for="landingAnnouncement" style="font-weight:600;">&#128227; Announcement / Welcome Message</label>
+            <textarea id="landingAnnouncement" rows="3" placeholder="Optional message shown at top of landing page (e.g., 'New SNARF form template available below — please use the updated version.')" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+            <button type="button" class="save-btn" onclick="saveAnnouncement()" style="margin-top:10px;padding:10px 20px;border-radius:6px;">&#128190; Save Announcement</button>
+          </div>
+
+          <hr style="margin:20px 0;border:none;border-top:1px solid #e5e7eb;" />
+
+          <!-- Upload new resource -->
+          <h4 style="margin-bottom:12px;color:#1e293b;">&#128206; Upload New Resource</h4>
+          <div class="resource-upload-area">
+            <input type="file" id="resourceFileInput" accept=".pdf,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.jpeg,.jpg,.png" style="display:none;" onchange="onResourceFileSelected(event)" />
+            <button type="button" class="add-user-btn" onclick="document.getElementById('resourceFileInput').click()">+ Choose File</button>
+            <span id="resourceFileName" style="margin-left:10px;color:#6b7280;font-size:13px;">No file selected (max 3MB)</span>
+          </div>
+
+          <div class="form-group" style="margin-top:12px;">
+            <label for="resourceDescription" style="font-weight:600;">Description / Context (optional)</label>
+            <textarea id="resourceDescription" rows="2" placeholder="e.g., Blank SNARF form template — fill before submitting." style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+          </div>
+
+          <button type="button" class="save-btn" onclick="addResource()" id="addResourceBtn" disabled style="padding:10px 20px;border-radius:6px;">&#10133; Add to Landing Page</button>
+
+          <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;" />
+
+          <!-- Existing resources list -->
+          <h4 style="margin-bottom:12px;color:#1e293b;">&#128193; Current Resources <span id="resourceCountBadge" style="font-size:12px;color:#6b7280;font-weight:400;">(0)</span></h4>
+          <div id="resourcesList" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
       </div>
     </div>
   </main>
+
 
   <!-- ==================== MODALS ==================== -->
 
@@ -318,7 +360,7 @@
     </div>
   </div>
 
-  
+
   <div id="detailModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle" tabindex="-1">
     <div class="detail-modal-content">
       <h3 id="detailModalTitle">&#128196; Submission Details</h3>
