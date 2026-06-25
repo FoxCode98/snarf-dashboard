@@ -19,10 +19,65 @@
             min-height:100vh;
             background: linear-gradient(135deg,#1e3c72,#2a5298);
             display:flex;
+            flex-direction:column;
             justify-content:center;
             align-items:center;
             padding:20px;
         }
+
+        /* ===== LANDING PAGE RESOURCES ===== */
+        .landing-res-item {
+          display: flex; align-items: center; gap: 14px;
+          padding: 14px 16px;
+          background: #f8fafc; border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          transition: all 0.2s ease;
+        }
+        .landing-res-item:hover {
+          border-color: #4f46e5;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(79,70,229,0.1);
+        }
+        .landing-res-icon {
+          width: 48px; height: 48px;
+          border-radius: 10px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 24px; flex-shrink: 0;
+        }
+        .landing-res-icon.pdf { background: #fee2e2; }
+        .landing-res-icon.xls { background: #d1fae5; }
+        .landing-res-icon.doc { background: #dbeafe; }
+        .landing-res-icon.ppt { background: #fed7aa; }
+        .landing-res-icon.img { background: #e0e7ff; }
+        .landing-res-icon.other { background: #f1f5f9; }
+
+        .landing-res-info { flex: 1; min-width: 0; }
+        .landing-res-name {
+          font-weight: 600; color: #1e293b; font-size: 15px;
+          margin-bottom: 4px;
+        }
+        .landing-res-desc {
+          color: #64748b; font-size: 13px; line-height: 1.5;
+        }
+        .landing-res-meta {
+          color: #94a3b8; font-size: 11px; margin-top: 4px;
+        }
+        .landing-res-download {
+          padding: 10px 18px;
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          color: white; border: none; border-radius: 8px;
+          font-weight: 600; font-size: 13px;
+          cursor: pointer;
+          text-decoration: none;
+          display: inline-flex; align-items: center; gap: 6px;
+          transition: all 0.2s ease;
+          flex-shrink: 0;
+        }
+        .landing-res-download:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(79,70,229,0.4);
+        }
+
 
         .landing-container{
             width:100%;
@@ -559,6 +614,17 @@
 
 <body>
 
+    <!-- ===== ANNOUNCEMENT BANNER ===== -->
+    <div id="landingAnnouncementBox" style="display:none;background:linear-gradient(135deg,#eef2ff,#f5f3ff);border-left:4px solid #4f46e5;border-radius:10px;padding:16px 20px;margin:0 auto 20px;max-width:1000px;width:100%;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="font-size:24px;">📢</div>
+        <div style="flex:1;">
+          <h3 style="margin:0 0 6px;color:#3730a3;font-size:16px;">Announcement</h3>
+          <p id="landingAnnouncementText" style="margin:0;color:#475569;font-size:14px;line-height:1.6;white-space:pre-wrap;"></p>
+        </div>
+      </div>
+    </div>
+
     <div class="landing-container">
 
         <!-- Top Right Sign In -->
@@ -613,6 +679,13 @@
             <div class="button-section">
                 <button class="start-btn" onclick="window.location.href='snarfform.html'">📝 Open SNARF Form</button>
                 <button class="track-btn" onclick="openTrackModal()">🔍 Track My Submission</button>
+            </div>
+
+            <!-- ===== RESOURCES SECTION ===== -->
+            <div id="landingResourcesSection" style="display:none;margin-top:40px;padding-top:30px;border-top:2px solid #e2e8f0;">
+              <h2 style="color:#1e3c72;font-size:22px;margin-bottom:6px;">📥 Resources & Templates</h2>
+              <p style="color:#64748b;font-size:14px;margin-bottom:20px;">Download these documents to help you complete your SNARF submission.</p>
+              <div id="landingResourcesList" style="display:flex;flex-direction:column;gap:10px;"></div>
             </div>
 
         </div>
@@ -696,6 +769,74 @@
         return -1;
     }
 
+    // ===== LANDING RESOURCES LOADER =====
+    (function () {
+        function escHtml(str) {
+          var d = document.createElement('div');
+          d.appendChild(document.createTextNode(str || ''));
+          return d.innerHTML;
+        }
+
+        function loadLanding() {
+          var raw = localStorage.getItem('landingResources');
+          if (!raw) return;
+          var data;
+          try { data = JSON.parse(raw); } catch (e) { return; }
+
+          // Announcement
+          if (data.announcement && data.announcement.trim()) {
+            var box = document.getElementById('landingAnnouncementBox');
+            var txt = document.getElementById('landingAnnouncementText');
+            if (box && txt) {
+              txt.textContent = data.announcement;
+              box.style.display = 'block';
+            }
+          }
+
+          // Resources
+          var files = data.files || [];
+          if (files.length === 0) return;
+
+          var section = document.getElementById('landingResourcesSection');
+          var list = document.getElementById('landingResourcesList');
+          if (!section || !list) return;
+
+          var html = '';
+          files.forEach(function (f) {
+            var ext = (f.ext || '').toLowerCase();
+            var iconClass = 'other', icon = '📄';
+            if (ext === 'pdf') { iconClass = 'pdf'; icon = '📄'; }
+            else if (ext === 'xlsx' || ext === 'xls') { iconClass = 'xls'; icon = '📊'; }
+            else if (ext === 'docx' || ext === 'doc') { iconClass = 'doc'; icon = '📝'; }
+            else if (ext === 'pptx' || ext === 'ppt') { iconClass = 'ppt'; icon = '📈'; }
+            else if (ext === 'jpeg' || ext === 'jpg' || ext === 'png') { iconClass = 'img'; icon = '🖼️'; }
+
+            var sizeText = f.size > 1024 * 1024
+              ? (f.size / 1024 / 1024).toFixed(2) + ' MB'
+              : (f.size / 1024).toFixed(1) + ' KB';
+
+            html += '<div class="landing-res-item">' +
+              '<div class="landing-res-icon ' + iconClass + '">' + icon + '</div>' +
+              '<div class="landing-res-info">' +
+                '<div class="landing-res-name">' + escHtml(f.name) + '</div>' +
+                (f.description ? '<div class="landing-res-desc">' + escHtml(f.description) + '</div>' : '') +
+                '<div class="landing-res-meta">' + sizeText + '</div>' +
+              '</div>' +
+              '<a class="landing-res-download" href="' + f.dataUrl + '" download="' + escHtml(f.name) + '">⬇ Download</a>' +
+            '</div>';
+          });
+          list.innerHTML = html;
+          section.style.display = 'block';
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', loadLanding);
+        } else {
+          loadLanding();
+        }
+    })();
+
+
     // ===== TRACK MODAL LOGIC =====
     function openTrackModal() {
         document.getElementById('trackModalOverlay').classList.add('active');
@@ -765,7 +906,6 @@
             var lastEntry = data.stageHistory[data.stageHistory.length - 1];
             if (lastEntry.to === 'Rejected') {
                 rejectedAtIdx = getStageIndex(lastEntry.from);
-                // If rejected from Pending, rejectedAtIdx = -1, meaning it was rejected before stage 0
             }
         }
 
@@ -778,7 +918,6 @@
         } else if (status === 'Rejected') {
             badgeHtml = '<span class="track-status-badge track-status-rejected">Rejected</span>';
         } else {
-            // Intermediate status — use dynamic colour
             var ci = currentStageIdx >= 0 ? currentStageIdx : 0;
             var c = TRACK_STAGE_COLORS[ci % TRACK_STAGE_COLORS.length];
             badgeHtml = '<span class="track-status-badge" style="background:' + c.bg + ';color:' + c.text + ';">' + status + '</span>';
@@ -787,7 +926,6 @@
         // ===== DYNAMIC PROGRESS STEPS =====
         var progressHtml = '';
 
-        // Step 0: Submitted (always done)
         progressHtml += '<div class="track-step">';
         progressHtml += '<div class="track-step-circle done">✓</div>';
         progressHtml += '<div class="track-step-label">Submitted</div>';
@@ -799,11 +937,9 @@
             var stageLabel = isLast ? 'Approved' : stage.completedStatus;
             var stageDisplayName = stage.name || stageLabel;
 
-            // Connector before this step
             var connectorClass = 'track-step-connector';
 
             if (isRejected) {
-                // Everything up to the rejection point is done, then rejected
                 if (rejectedAtIdx >= i) {
                     connectorClass += ' done-line';
                 } else if (rejectedAtIdx === i - 1 || (rejectedAtIdx === -1 && i === 0)) {
@@ -817,15 +953,12 @@
 
             progressHtml += '<div class="' + connectorClass + '"></div>';
 
-            // Step circle
             progressHtml += '<div class="track-step">';
 
             if (isRejected) {
                 if (i <= rejectedAtIdx) {
-                    // Stages completed before rejection
                     progressHtml += '<div class="track-step-circle done">✓</div>';
                 } else if ((rejectedAtIdx === -1 && i === 0) || i === rejectedAtIdx + 1) {
-                    // The stage where rejection happened
                     progressHtml += '<div class="track-step-circle rejected-step">✘</div>';
                 } else {
                     progressHtml += '<div class="track-step-circle waiting">' + (i + 1) + '</div>';
@@ -837,10 +970,8 @@
                     progressHtml += '<div class="track-step-circle done">✓</div>';
                 }
             } else if (currentStageIdx >= i) {
-                // Completed this stage
                 progressHtml += '<div class="track-step-circle done">✓</div>';
             } else if ((status === 'Pending' && i === 0) || currentStageIdx === i - 1) {
-                // Currently at this stage (waiting)
                 progressHtml += '<div class="track-step-circle active-step">⏳</div>';
             } else {
                 progressHtml += '<div class="track-step-circle waiting">' + (i + 1) + '</div>';
@@ -886,7 +1017,6 @@
             actionedHtml = '<div class="track-actioned-info approved-info">✅ <strong>Approved</strong> by ' + data.actionedBy + ' (' + (data.actionedByRole || 'N/A') + ')' + (data.actionedAt ? ' on ' + formatTrackDate(data.actionedAt) : '') + '</div>';
         } else if (status === 'Rejected' && data.actionedBy) {
             actionedHtml = '<div class="track-actioned-info rejected-info">❌ <strong>Rejected</strong> by ' + data.actionedBy + ' (' + (data.actionedByRole || 'N/A') + ')' + (data.actionedAt ? ' on ' + formatTrackDate(data.actionedAt) : '') + '</div>';
-            // Show rejection reason
             if (data.rejectReason || data.rejectCategory) {
                 actionedHtml += '<div class="track-reject-reason">';
                 if (data.rejectCategory) actionedHtml += '<div class="track-reject-category">' + data.rejectCategory + '</div>';
@@ -894,7 +1024,6 @@
                 actionedHtml += '</div>';
             }
         } else if (status !== 'Pending' && status !== 'Approved' && status !== 'Rejected') {
-            // Intermediate status
             var nextIdx = currentStageIdx + 1;
             var waitingRole = (nextIdx >= 0 && nextIdx < stages.length) ? stages[nextIdx].role : 'N/A';
             var nextLabel = (nextIdx >= 0 && nextIdx < stages.length) ? (nextIdx === stages.length - 1 ? 'Approved' : stages[nextIdx].completedStatus) : '';
