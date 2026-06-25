@@ -2260,3 +2260,46 @@ table tr:hover {
   transition: background var(--transition);
 }
 .resource-item-admin .res-delete:hover { background: var(--danger-dark); }
+
+
+
+/* ===== ATTACHMENT MANAGEMENT BUTTONS ===== */
+.attachment-btn-replace {
+  background: var(--warning);
+  color: white;
+}
+.attachment-btn-replace:hover { background: var(--warning-dark); }
+
+.add-attachment-section {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-subtle);
+  border: 2px dashed var(--border-medium);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+.add-attachment-btn {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color var(--transition);
+}
+
+.add-attachment-btn:hover { background: var(--primary-dark); }
+
+.add-attachment-btn:disabled {
+  background: var(--border-medium);
+  cursor: not-allowed;
+}
+
+.attachment-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
