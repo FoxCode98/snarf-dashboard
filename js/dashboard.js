@@ -921,7 +921,7 @@ function updateAllBadges() {
   var actionNeeded = 0;
   subs.forEach(function (s) {
     var status = s.status || 'Pending';
-    if (status !== 'Approved' && status !== 'Rejected') actionNeeded++;
+    if (status === 'Pending') actionNeeded++;
   });
 
   var snarfBadge = document.getElementById('pendingBadge');
@@ -931,7 +931,13 @@ function updateAllBadges() {
   }
 
   var pendingsCount = 0;
-  subs.forEach(function (s) { if (canRoleActionSubmission(role, s)) pendingsCount++; });
+  
+
+subs.forEach(function (s) { 
+  if ((s.status || 'Pending') === 'Pending') pendingsCount++; 
+});
+
+
 
   var pendingsBadge = document.getElementById('pendingsBadge');
   if (pendingsBadge) {
@@ -1834,9 +1840,11 @@ function filterPendingsTable() {
   var searchTerm = searchEl ? searchEl.value.toLowerCase().trim() : '';
   var role = getCurrentRole();
 
+  
   var results = getSnarfSubmissions().filter(function (s) {
-    return canRoleActionSubmission(role, s);
+  return (s.status || 'Pending') === 'Pending';
   });
+
 
   if (searchTerm) {
     results = results.filter(function (r) {
@@ -2309,4 +2317,3 @@ function renderResourcesList() {
   });
   container.innerHTML = html;
 }
-
