@@ -132,6 +132,11 @@
             <button type="button" class="snarf-bulk-btn snarf-bulk-reject" id="bulkRejectBtn" onclick="bulkAction('Rejected')" disabled>&#10008; Bulk Reject</button>
             <button type="button" class="snarf-bulk-btn snarf-bulk-delete" id="bulkDeleteBtn" onclick="bulkAction('Delete')" disabled>&#128465; Bulk Delete</button>
             <button type="button" class="snarf-export-btn" onclick="exportSnarfToExcel()">&#128229; Export to Excel</button>
+            
+            <input type="file" id="importCsvInput" accept=".csv" style="display:none;" onchange="importSnarfFromCsv(event)" />
+            <button type="button" class="snarf-export-btn" style="background:#0ea5e9;" onclick="document.getElementById('importCsvInput').click()">📤 Import CSV</button>
+
+          
           </div>
         </div>
         <div class="snarf-table-wrapper">
