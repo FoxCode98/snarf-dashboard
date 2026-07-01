@@ -134,7 +134,11 @@
             <button type="button" class="snarf-export-btn" onclick="exportSnarfToExcel()">&#128229; Export to Excel</button>
             
             <input type="file" id="importCsvInput" accept=".csv" style="display:none;" onchange="importSnarfFromCsv(event)" />
-            <button type="button" class="snarf-export-btn" style="background:#0ea5e9;" onclick="document.getElementById('importCsvInput').click()">📤 Import CSV</button>
+           
+            <button type="button" id="importCsvBtn" class="snarf-export-btn"
+            style="background:#0ea5e9;"
+            onclick="document.getElementById('importCsvInput').click()">📤 Import CSV</button>
+
 
           
           </div>
