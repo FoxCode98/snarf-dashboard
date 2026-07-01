@@ -310,7 +310,7 @@ function applyRolePermissions() {
     hideEl('bulkApproveBtn');
     hideEl('bulkRejectBtn');
     hideEl('bulkDeleteBtn');
-    hideEl('thCheckboxCol');
+    hideEl('thCheckboxCol');hideEl('importCsvBtn');
     hideEl('snarfSummaryContainer');
     var nr = document.getElementById('viewerNoticeRole'); if (nr) nr.textContent = 'Submitter';
     var n = document.getElementById('viewerNotice'); if (n) n.classList.add('visible');
@@ -325,6 +325,7 @@ function applyRolePermissions() {
   hideEl('bulkDeleteBtn');
   hideEl('thCheckboxCol');
   hideEl('snarfSummaryContainer');
+  hideEl('importCsvBtn');
   var nr2 = document.getElementById('viewerNoticeRole'); if (nr2) nr2.textContent = role;
   var n2 = document.getElementById('viewerNotice'); if (n2) n2.classList.add('visible');
 }
