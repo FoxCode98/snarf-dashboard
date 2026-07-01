@@ -1,8 +1,10 @@
 
-// dashboard.js - DYNAMIC MULTI-STAGE APPROVAL + REJECT REASON + ROLE MANAGER
+// dashboard.js - DYNAMIC MULTI-STAGE APPROVAL + REJECT REASON + ROLE MANAGER + RECORD LOCKING + SUBMITTER TRACKING
 // System roles: Admin, Viewer, Submitter (fixed, cannot be deleted)
 // Approval roles: Custom, created/deleted in Role Manager, assigned to stages
 // Workflow: Pending → Stage1 → Stage2 → ... → Approved
+// Locking: Save → locks record to editor; Admin or owner can unlock
+// Ownership: Submitters & Viewers see only their own forms; Admin/Approvers see all
 
 // ===================== CONSTANTS =====================
 var SYSTEM_ROLES = ['Admin', 'Viewer', 'Submitter'];
@@ -28,6 +30,9 @@ var ROLE_COLORS = [
   { bg: '#f0f9ff', text: '#075985', border: '#7dd3fc' },
   { bg: '#fdf2f8', text: '#9d174d', border: '#f9a8d4' }
 ];
+
+// Track Save before Approve/Reject
+var conductSaved = false;
 
 // ===================== SAFE PARSE HELPER =====================
 function safeParse(key, fallback) {
@@ -230,6 +235,56 @@ function getCurrentUser() {
 }
 function getCurrentRole() { return getCurrentUser().role || 'Viewer'; }
 
+// ===================== LOCKING HELPERS =====================
+function isLocked(sub) {
+  return !!(sub && sub.lockedBy);
+}
+
+function isLockedByCurrentUser(sub) {
+  var cu = getCurrentUser();
+  return sub && sub.lockedBy && sub.lockedBy === cu.name;
+}
+
+function canUnlock(sub) {
+  if (!sub || !sub.lockedBy) return false;
+  var cu = getCurrentUser();
+  return cu.role === 'Admin' || cu.name === sub.lockedBy;
+}
+
+function formatLockTime(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  return d.toLocaleDateString() + ' ' +
+         d.getHours().toString().padStart(2, '0') + ':' +
+         d.getMinutes().toString().padStart(2, '0');
+}
+
+function unlockSubmission(formId) {
+  var subs = getSnarfSubmissions();
+  var i = -1;
+  for (var x = 0; x < subs.length; x++) {
+    if (subs[x].formId === formId) { i = x; break; }
+  }
+  if (i === -1) return;
+
+  if (!canUnlock(subs[i])) {
+    showToast('You are not allowed to unlock this record.', 'error');
+    return;
+  }
+
+  if (!confirm('Unlock this record? Others will be able to edit it.')) return;
+
+  subs[i].lockedBy = null;
+  subs[i].lockedByRole = null;
+  subs[i].lockedAt = null;
+
+  saveSnarfSubmissions(subs);
+  showToast('Record unlocked.', 'success');
+  conductSaved = false;
+  refreshAll();
+  viewSnarfDetail(formId);
+}
+
 // ===================== ROLE-BASED ACCESS (DYNAMIC) =====================
 function applyRolePermissions() {
   var user = getCurrentUser();
@@ -257,7 +312,6 @@ function applyRolePermissions() {
     hideEl('bulkDeleteBtn');
     hideEl('thCheckboxCol');
     hideEl('snarfSummaryContainer');
-    hideEl('snarfSummaryContainer');
     var nr = document.getElementById('viewerNoticeRole'); if (nr) nr.textContent = 'Submitter';
     var n = document.getElementById('viewerNotice'); if (n) n.classList.add('visible');
     return;
@@ -271,7 +325,6 @@ function applyRolePermissions() {
   hideEl('bulkDeleteBtn');
   hideEl('thCheckboxCol');
   hideEl('snarfSummaryContainer');
-    hideEl('snarfSummaryContainer');
   var nr2 = document.getElementById('viewerNoticeRole'); if (nr2) nr2.textContent = role;
   var n2 = document.getElementById('viewerNotice'); if (n2) n2.classList.add('visible');
 }
@@ -919,9 +972,27 @@ function loadTabVisibilitySettings() {
 }
 
 // ===================== BADGES (DYNAMIC) =====================
+
 function updateAllBadges() {
   var subs = getSnarfSubmissions();
-  var role = getCurrentRole();
+  var currentUser = getCurrentUser();
+  var role = currentUser.role;
+
+  // ✅ Apply ownership filter for Submitter & Viewer
+  if (role === 'Submitter' || role === 'Viewer') {
+    var userEmail = (currentUser.email || '').toLowerCase().trim();
+    var userName  = (currentUser.name  || '').toLowerCase().trim();
+
+    subs = subs.filter(function (r) {
+      var rEmail = (r.submittedByEmail || '').toLowerCase().trim();
+      var rName  = (r.submittedByName  || '').toLowerCase().trim();
+      if (rEmail && userEmail) return rEmail === userEmail;
+      if (rName  && userName)  return rName  === userName;
+      return false;
+    });
+  }
+
+  // Count Pending for badge
   var actionNeeded = 0;
   subs.forEach(function (s) {
     var status = s.status || 'Pending';
@@ -935,13 +1006,9 @@ function updateAllBadges() {
   }
 
   var pendingsCount = 0;
-  
-
-subs.forEach(function (s) { 
-  if ((s.status || 'Pending') === 'Pending') pendingsCount++; 
-});
-
-
+  subs.forEach(function (s) {
+    if ((s.status || 'Pending') === 'Pending') pendingsCount++;
+  });
 
   var pendingsBadge = document.getElementById('pendingsBadge');
   if (pendingsBadge) {
@@ -949,6 +1016,7 @@ subs.forEach(function (s) {
     else { pendingsBadge.style.display = 'none'; }
   }
 }
+
 
 // ===================== DASHBOARD STATS (DYNAMIC) =====================
 function updateDashboardStats() {
@@ -1052,21 +1120,20 @@ function filterSnarfTable() {
   var results = getSnarfSubmissions();
   var currentUser = getCurrentUser();
 
-  if (currentUser.role === 'Submitter') {
+  // ✅ STRICT OWNERSHIP FILTER — Submitter & Viewer see only their own submissions
+  if (currentUser.role === 'Submitter' || currentUser.role === 'Viewer') {
     var userEmail = (currentUser.email || '').toLowerCase().trim();
-    var userName = currentUser.name.toLowerCase().trim();
-    var userNameParts = userName.split(/\s+/);
+    var userName  = (currentUser.name  || '').toLowerCase().trim();
+
     results = results.filter(function (r) {
-      if (r.submittedByEmail && userEmail) return r.submittedByEmail.toLowerCase().trim() === userEmail;
-      var fn = (r.firstName || '').toLowerCase().trim();
-      var ln = (r.lastName || '').toLowerCase().trim();
-      var full1 = fn + ' ' + ln;
-      if (full1 === userName || (ln + ' ' + fn) === userName || (ln + ', ' + fn) === userName) return true;
-      if (userNameParts.length >= 2) {
-        var allMatch = true;
-        for (var p = 0; p < userNameParts.length; p++) { if (full1.indexOf(userNameParts[p]) === -1) { allMatch = false; break; } }
-        return allMatch;
-      }
+      var rEmail = (r.submittedByEmail || '').toLowerCase().trim();
+      var rName  = (r.submittedByName  || '').toLowerCase().trim();
+
+      // Strict ownership match
+      if (rEmail && userEmail) return rEmail === userEmail;
+      if (rName  && userName)  return rName  === userName;
+
+      // Old submissions without submitter info → hide
       return false;
     });
   }
@@ -1075,7 +1142,7 @@ function filterSnarfTable() {
 
   if (searchTerm) {
     results = results.filter(function (r) {
-      return [r.formId, r.lastName, r.firstName, r.mi, r.office, r.telephone, r.date, r.purpose, r.description, r.period, r.fromDate, r.toDate, r.status || "Pending", r.actionedBy || ""].join(" ").toLowerCase().indexOf(searchTerm) !== -1;
+      return [r.formId, r.lastName, r.firstName, r.mi, r.office, r.telephone, r.date, r.purpose, r.description, r.period, r.fromDate, r.toDate, r.status || "Pending", r.actionedBy || "", r.lockedBy || "", r.submittedByName || "", r.submittedByEmail || ""].join(" ").toLowerCase().indexOf(searchTerm) !== -1;
     });
   }
 
@@ -1121,6 +1188,10 @@ function addFormResultToTable(formData) {
   var status = formData.status || "Pending";
   var role = getCurrentRole();
   var statusHtml = getStatusBadgeHtml(status);
+  var lockHtml = formData.lockedBy
+    ? '<br><small style="color:#92400e;font-weight:600;">🔒 ' + esc(formData.lockedBy) + '</small>'
+    : '';
+
   var fId = esc(formData.formId);
   var ln = esc(formData.lastName);
   var fn = esc(formData.firstName);
@@ -1135,9 +1206,9 @@ function addFormResultToTable(formData) {
   var cells = '';
 
   if (role === 'Viewer' || role === 'Submitter') {
-    cells = '<td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + statusHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + esc(formData.formId) + '\')">👁 View</button></td>';
+    cells = '<td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + statusHtml + lockHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
   } else {
-    cells = '<td><input type="checkbox" class="row-checkbox" value="' + fId + '" onclick="onRowCheckboxChange()" /></td><td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + statusHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + esc(formData.formId) + '\')">👁 View</button></td>';
+    cells = '<td><input type="checkbox" class="row-checkbox" value="' + fId + '" onclick="onRowCheckboxChange()" /></td><td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + statusHtml + lockHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
   }
   row.innerHTML = cells;
   tbody.appendChild(row);
@@ -1145,15 +1216,17 @@ function addFormResultToTable(formData) {
 
 // ===================== ATTACHMENTS RENDERING =====================
 function renderAttachmentsHtml(attachments) {
-  // Determine if user can manage attachments
   var data = getSnarfSubmissions().find(function (s) { return s.formId === currentDetailFormId; });
   var canManage = false;
   if (data) {
     var status = data.status || 'Pending';
-    var isLocked = (status === 'Approved' || status === 'Rejected');
+    var isLockedStatus = (status === 'Approved' || status === 'Rejected');
     var role = getCurrentRole();
     var canAction = canRoleActionSubmission(role, data);
-    canManage = !isLocked && (role === 'Admin' || canAction);
+    var locked = isLocked(data);
+    var lockedByMe = isLockedByCurrentUser(data);
+    var lockBlocks = locked && !lockedByMe && role !== 'Admin';
+    canManage = !isLockedStatus && (role === 'Admin' || canAction) && !lockBlocks;
   }
 
   var html = '';
@@ -1193,7 +1266,6 @@ function renderAttachmentsHtml(attachments) {
     html += '</div>';
   }
 
-  // Add "Add More" section if user can manage and under limit
   if (canManage) {
     var MAX = 3;
     var atLimit = count >= MAX;
@@ -1215,7 +1287,7 @@ function renderAttachmentsHtml(attachments) {
 
 // ===================== ATTACHMENT MANAGEMENT =====================
 var replaceAttachmentIndex = -1;
-var ATTACHMENT_MAX_SIZE = 2 * 1024 * 1024;   // 2 MB
+var ATTACHMENT_MAX_SIZE = 2 * 1024 * 1024;
 var ATTACHMENT_MAX_COUNT = 3;
 var ATTACHMENT_ALLOWED_EXT = ['pdf', 'pptx', 'jpeg', 'jpg', 'png'];
 
@@ -1342,19 +1414,47 @@ function removeAttachmentFromSubmission(index) {
   viewSnarfDetail(currentDetailFormId);
 }
 
+
 function viewAttachment(formId, index) {
   var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
   if (!data || !data.attachments || !data.attachments[index]) return;
+
   var f = data.attachments[index];
   var win = window.open('', '_blank');
   if (!win) { showToast('Pop-up blocked. Allow pop-ups to view.', 'error'); return; }
+
   var ext = (f.ext || '').toLowerCase();
+  var bodyContent = '';
+
   if (ext === 'pdf') {
-    win.document.write('<title>' + esc(f.name) + '</title>' + f.dataUrl + '0;width:100vw;height:100vh;"></iframe>');
+    bodyContent =
+      '<iframe src="' + f.dataUrl + '" ' +
+              'width="100%" height="100%" ' +
+              'style="border:none;"></iframe>';
   } else {
-    win.document.write('<title>' + esc(f.name) + '</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh;">' + f.dataUrl + '-width:100%;max-height:100vh;object-fit:contain;" /></body>');
+    bodyContent =
+      '<img src="' + f.dataUrl + '" ' +
+            'alt="' + esc(f.name) + '" ' +
+            'style="max-width:100%;max-height:100vh;" />';
   }
+
+  win.document.open();
+  win.document.write(
+    '<!DOCTYPE html>' +
+    '<html>' +
+      '<head>' +
+        '<title>' + esc(f.name) + '</title>' +
+        '<style>' +
+          'html,body{margin:0;padding:0;height:100%;background:#111;}' +
+          'body{display:flex;align-items:center;justify-content:center;}' +
+        '</style>' +
+      '</head>' +
+      '<body>' + bodyContent + '</body>' +
+    '</html>'
+  );
+  win.document.close();
 }
+
 
 function downloadAttachment(formId, index) {
   var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
@@ -1390,6 +1490,10 @@ function generateApprovedId(originalId, liveSubs) {
 var currentDetailFormId = null;
 
 function viewSnarfDetail(formId) {
+  if (currentDetailFormId !== formId) {
+    conductSaved = false;
+  }
+
   var data = getSnarfSubmissions().find(function (s) { return s.formId === formId; });
   if (!data) return;
   currentDetailFormId = formId;
@@ -1397,11 +1501,33 @@ function viewSnarfDetail(formId) {
   var isActioned = (status === 'Approved' || status === 'Rejected');
   var role = getCurrentRole();
   var canAction = canRoleActionSubmission(role, data);
-  var canEditConduct = (role === 'Admin' || canAction) && status !== 'Approved';
 
+  var locked = isLocked(data);
+  var lockedByMe = isLockedByCurrentUser(data);
+
+  if (locked && !lockedByMe && role !== 'Admin') {
+    canAction = false;
+  }
+
+  var canEditConduct = (role === 'Admin' || canAction) && status !== 'Approved'
+    && (!locked || lockedByMe || role === 'Admin');
+
+  // Build fields array - Submitted By visible only for Admin / approval roles
   var fields = [
     { label: 'Form ID', value: '<strong>' + esc(data.formId) + '</strong>' },
-    { label: 'Original Form ID', value: esc(data.originalFormId || data.formId) },
+    { label: 'Original Form ID', value: esc(data.originalFormId || data.formId) }
+  ];
+
+  // Show submitter info only to Admin or approval roles
+  if (role === 'Admin' || isApprovalRole(role)) {
+    fields.push({
+      label: 'Submitted By',
+      value: '<strong>' + esc(data.submittedByName || 'Unknown') + '</strong>'
+            + (data.submittedByEmail ? ' &lt;' + esc(data.submittedByEmail) + '&gt;' : '')
+    });
+  }
+
+  fields = fields.concat([
     { label: 'Last Name', value: esc(data.lastName) },
     { label: 'First Name', value: esc(data.firstName) },
     { label: 'M.I.', value: esc(data.mi) },
@@ -1414,9 +1540,25 @@ function viewSnarfDetail(formId) {
     { label: 'From Date', value: esc(data.fromDate || 'N/A') },
     { label: 'To Date', value: esc(data.toDate || 'N/A') },
     { label: 'Status', value: getStatusBadgeHtml(status) }
-  ];
+  ]);
 
   var html = '';
+
+  if (locked) {
+    var bannerColor = lockedByMe ? '#d1fae5' : '#fef3c7';
+    var borderColor = lockedByMe ? '#10b981' : '#f59e0b';
+    var textColor = lockedByMe ? '#065f46' : '#92400e';
+    var icon = lockedByMe ? '✏️' : '🔒';
+    var msg = lockedByMe
+      ? 'You are currently working on this record'
+      : 'Currently being worked on by <strong>' + esc(data.lockedBy) + '</strong> (' + esc(data.lockedByRole || 'N/A') + ')';
+
+    html += '<div style="background:' + bannerColor + ';border-left:4px solid ' + borderColor + ';padding:10px 14px;margin-bottom:12px;border-radius:6px;color:' + textColor + ';font-weight:600;">' +
+      icon + ' ' + msg +
+      ' since ' + formatLockTime(data.lockedAt) +
+      '</div>';
+  }
+
   for (var f = 0; f < fields.length; f++) {
     html += '<div class="detail-row"><div class="detail-label">' + fields[f].label + ':</div><div class="detail-value">' + fields[f].value + '</div></div>';
   }
@@ -1482,7 +1624,6 @@ function viewSnarfDetail(formId) {
     html += '</div>';
   }
 
-  // Attachments section
   html += '<div class="conduct-section" style="border-left-color:#6366f1;"><h4>📎 Attachments</h4>';
   html += renderAttachmentsHtml(data.attachments);
   html += '</div>';
@@ -1514,7 +1655,7 @@ function viewSnarfDetail(formId) {
   var actionBarHtml = '';
   if (canEditConduct) actionBarHtml += '<button class="save-conduct-btn" onclick="saveConductFromModal()">💾 Save</button>';
 
-  if (canAction && !isActioned) {
+  if (canAction && !isActioned && conductSaved) {
     var nextSt = getNextStatus(data);
     if (nextSt) {
       var btnLabel = nextSt === 'Approved' ? '✔ Approve' : '🔵 ' + esc(nextSt);
@@ -1522,6 +1663,10 @@ function viewSnarfDetail(formId) {
       actionBarHtml += '<button class="detail-approve-btn"' + btnColor + ' onclick="advanceFromModal()">' + btnLabel + '</button>';
     }
     actionBarHtml += '<button class="detail-reject-btn" onclick="rejectFromModal()">✘ Reject</button>';
+  }
+
+  if (locked && canUnlock(data)) {
+    actionBarHtml += '<button class="detail-close-btn" style="background:#f59e0b;" onclick="unlockSubmission(\'' + currentDetailFormId + '\')">🔓 Unlock</button>';
   }
 
   if (role === 'Admin') actionBarHtml += '<button class="detail-delete-btn" onclick="deleteFromModal()">🗑 Delete</button>';
@@ -1533,7 +1678,12 @@ function viewSnarfDetail(formId) {
   if (modal) modal.classList.add('active');
 }
 
-function closeDetailModal() { var m = document.getElementById('detailModal'); if (m) m.classList.remove('active'); currentDetailFormId = null; }
+function closeDetailModal() {
+  var m = document.getElementById('detailModal');
+  if (m) m.classList.remove('active');
+  currentDetailFormId = null;
+  conductSaved = false;
+}
 function advanceFromModal() { if (!currentDetailFormId) return; advanceSubmission(currentDetailFormId); closeDetailModal(); }
 function deleteFromModal() { if (!currentDetailFormId) return; deleteSnarfSubmission(currentDetailFormId); closeDetailModal(); }
 function rejectFromModal() { if (!currentDetailFormId) return; openRejectModal('single', currentDetailFormId, 'snarf'); }
@@ -1561,6 +1711,7 @@ function closeRejectModal() {
   var modal = document.getElementById('rejectReasonModal'); if (modal) modal.classList.remove('active');
   rejectPendingMode = null; rejectPendingIds = []; rejectPendingSource = null;
 }
+
 
 function onRejectReasonInput() {
   var txt = document.getElementById('rejectReasonText');
@@ -1601,6 +1752,11 @@ function advanceSubmission(formId) {
 
   if (!canRoleActionSubmission(role, subs[i])) { showToast('You cannot action this submission at its current stage.', 'error'); return; }
 
+  if (isLocked(subs[i]) && !isLockedByCurrentUser(subs[i]) && role !== 'Admin') {
+    showToast('Record is locked by ' + subs[i].lockedBy + '. Cannot advance.', 'error');
+    return;
+  }
+
   var nextSt = getNextStatus(subs[i]);
   if (!nextSt) { showToast('No next stage available.', 'error'); return; }
 
@@ -1614,6 +1770,10 @@ function advanceSubmission(formId) {
   subs[i].actionedBy = cu.name;
   subs[i].actionedByRole = cu.role;
   subs[i].actionedAt = new Date().toISOString();
+
+  subs[i].lockedBy = null;
+  subs[i].lockedByRole = null;
+  subs[i].lockedAt = null;
 
   if (nextSt === 'Approved') {
     subs[i].originalFormId = subs[i].formId;
@@ -1637,6 +1797,11 @@ function rejectSubmission(formId, reason, category) {
 
   if (!canRoleActionSubmission(role, subs[i])) { showToast('You cannot action this submission.', 'error'); return; }
 
+  if (isLocked(subs[i]) && !isLockedByCurrentUser(subs[i]) && role !== 'Admin') {
+    showToast('Record is locked by ' + subs[i].lockedBy + '. Cannot reject.', 'error');
+    return;
+  }
+
   var currentStatus = subs[i].status || 'Pending';
   if (!confirm('Reject submission ' + formId + '?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
 
@@ -1649,6 +1814,10 @@ function rejectSubmission(formId, reason, category) {
   subs[i].actionedAt = new Date().toISOString();
   subs[i].rejectReason = reason;
   subs[i].rejectCategory = category;
+
+  subs[i].lockedBy = null;
+  subs[i].lockedByRole = null;
+  subs[i].lockedAt = null;
 
   saveSnarfSubmissions(subs); refreshAll();
   showToast(formId + ' rejected by ' + cu.name + '.', 'warning');
@@ -1663,11 +1832,14 @@ function processBulkReject(ids, reason, category, source) {
   subs.forEach(function (s) {
     if (ids.indexOf(s.formId) === -1) return;
     if (!canRoleActionSubmission(role, s)) return;
+    if (isLocked(s) && s.lockedBy !== cu.name && role !== 'Admin') return;
+
     var currentStatus = s.status || 'Pending';
     if (!s.stageHistory) s.stageHistory = [];
     s.stageHistory.push({ from: currentStatus, to: 'Rejected', by: cu.name, role: cu.role, at: new Date().toISOString(), reason: reason, category: category });
     s.status = 'Rejected'; s.actionedBy = cu.name; s.actionedByRole = cu.role; s.actionedAt = new Date().toISOString();
     s.rejectReason = reason; s.rejectCategory = category;
+    s.lockedBy = null; s.lockedByRole = null; s.lockedAt = null;
     validCount++;
   });
   saveSnarfSubmissions(subs);
@@ -1683,6 +1855,13 @@ function saveConductFromModal() {
   var i = -1;
   for (var x = 0; x < subs.length; x++) { if (subs[x].formId === currentDetailFormId) { i = x; break; } }
   if (i === -1) return;
+
+  var role = getCurrentRole();
+  if (isLocked(subs[i]) && !isLockedByCurrentUser(subs[i]) && role !== 'Admin') {
+    showToast('Record is locked by ' + subs[i].lockedBy + '. Cannot save.', 'error');
+    return;
+  }
+
   var getVal = function (id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; };
   var getDate = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
   var getChk = function (id) { var el = document.getElementById(id); return el ? el.checked : false; };
@@ -1703,8 +1882,16 @@ function saveConductFromModal() {
   subs[i].thirdWarnings = getVal('edit3rdWarnings'); subs[i].thirdWarningsDate = getDate('edit3rdWarningsDate');
   subs[i].fourthWarnings = getVal('edit4thWarnings'); subs[i].fourthWarningsDate = getDate('edit4thWarningsDate');
 
+  subs[i].lockedBy = cu.name;
+  subs[i].lockedByRole = cu.role;
+  subs[i].lockedAt = new Date().toISOString();
+
   saveSnarfSubmissions(subs);
-  showToast('Conduct data saved for ' + currentDetailFormId + '.', 'success');
+  showToast('Saved and locked to ' + cu.name + '.', 'success');
+
+  conductSaved = true;
+  refreshAll();
+  viewSnarfDetail(currentDetailFormId);
 }
 
 // ===================== BULK ACTION (DYNAMIC) =====================
@@ -1726,20 +1913,30 @@ function bulkAction(action) {
 
   if (!confirm('Advance ' + ids.length + ' submission(s)?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
   var validCount = 0;
+  var skippedLocked = 0;
   subs.forEach(function (s) {
     if (ids.indexOf(s.formId) === -1) return;
     if (!canRoleActionSubmission(role, s)) return;
+
+    if (isLocked(s) && s.lockedBy !== cu.name && role !== 'Admin') {
+      skippedLocked++;
+      return;
+    }
+
     var nextSt = getNextStatus(s);
     if (!nextSt) return;
     var currentStatus = s.status || 'Pending';
     if (!s.stageHistory) s.stageHistory = [];
     s.stageHistory.push({ from: currentStatus, to: nextSt, by: cu.name, role: cu.role, at: new Date().toISOString() });
     s.status = nextSt; s.actionedBy = cu.name; s.actionedByRole = cu.role; s.actionedAt = new Date().toISOString();
+    s.lockedBy = null; s.lockedByRole = null; s.lockedAt = null;
     if (nextSt === 'Approved') { s.originalFormId = s.formId; s.formId = generateApprovedId(s.originalFormId, subs); }
     validCount++;
   });
   saveSnarfSubmissions(subs);
-  showToast(validCount + ' submission(s) advanced by ' + cu.name + '.', 'success');
+  var msg = validCount + ' submission(s) advanced by ' + cu.name + '.';
+  if (skippedLocked > 0) msg += ' (' + skippedLocked + ' skipped — locked by others)';
+  showToast(msg, 'success');
   refreshAll();
 }
 
@@ -1803,17 +2000,19 @@ function updateBulkButtons() {
 function exportSnarfToExcel() {
   var subs = getSnarfSubmissions();
   if (subs.length === 0) { showToast('No submissions to export.', 'warning'); return; }
-  var headers = ["Form ID", "Original ID", "Last Name", "First Name", "M.I.", "Office/Division", "Telephone", "Date", "Purpose", "Description", "Period", "From Date", "To Date", "Status", "Reject Category", "Reject Reason", "Initial Conduct", "Regular Conduct", "As Requested", "1st Test Count", "1st Test Date", "2nd Test Count", "2nd Test Date", "3rd Test Count", "3rd Test Date", "4th Test Count", "4th Test Date", "1st Holes", "1st Holes Date", "2nd Holes", "2nd Holes Date", "3rd Holes", "3rd Holes Date", "4th Holes", "4th Holes Date", "1st Warnings", "1st Warnings Date", "2nd Warnings", "2nd Warnings Date", "3rd Warnings", "3rd Warnings Date", "4th Warnings", "4th Warnings Date", "Actioned By", "Actioned By Role", "Actioned At"];
+  var headers = ["Form ID", "Original ID", "Submitted By Name", "Submitted By Email", "Last Name", "First Name", "M.I.", "Office/Division", "Telephone", "Date", "Purpose", "Description", "Period", "From Date", "To Date", "Status", "Reject Category", "Reject Reason", "Initial Conduct", "Regular Conduct", "As Requested", "1st Test Count", "1st Test Date", "2nd Test Count", "2nd Test Date", "3rd Test Count", "3rd Test Date", "4th Test Count", "4th Test Date", "1st Holes", "1st Holes Date", "2nd Holes", "2nd Holes Date", "3rd Holes", "3rd Holes Date", "4th Holes", "4th Holes Date", "1st Warnings", "1st Warnings Date", "2nd Warnings", "2nd Warnings Date", "3rd Warnings", "3rd Warnings Date", "4th Warnings", "4th Warnings Date", "Actioned By", "Actioned By Role", "Actioned At", "Locked By", "Locked By Role", "Locked At"];
   var csv = headers.map(function (h) { return '"' + h + '"'; }).join(",") + "\n";
   subs.forEach(function (s) {
     csv += [
-      s.formId, s.originalFormId || s.formId, s.lastName, s.firstName, s.mi, s.office, s.telephone, s.date, s.purpose, s.description, s.period, s.fromDate || '', s.toDate || '',
+      s.formId, s.originalFormId || s.formId, s.submittedByName || '', s.submittedByEmail || '',
+      s.lastName, s.firstName, s.mi, s.office, s.telephone, s.date, s.purpose, s.description, s.period, s.fromDate || '', s.toDate || '',
       s.status || 'Pending', s.rejectCategory || '', s.rejectReason || '',
       s.initialConduct ? 'Yes' : 'No', s.regularConduct ? 'Yes' : 'No', s.asRequested ? 'Yes' : 'No',
       s.firstTestCount || '', s.firstTestDate || '', s.secondTestCount || '', s.secondTestDate || '', s.thirdTestCount || '', s.thirdTestDate || '', s.fourthTestCount || '', s.fourthTestDate || '',
       s.firstHoles || '', s.firstHolesDate || '', s.secondHoles || '', s.secondHolesDate || '', s.thirdHoles || '', s.thirdHolesDate || '', s.fourthHoles || '', s.fourthHolesDate || '',
       s.firstWarnings || '', s.firstWarningsDate || '', s.secondWarnings || '', s.secondWarningsDate || '', s.thirdWarnings || '', s.thirdWarningsDate || '', s.fourthWarnings || '', s.fourthWarningsDate || '',
-      s.actionedBy || '', s.actionedByRole || '', s.actionedAt ? formatActionedAt(s.actionedAt) : ''
+      s.actionedBy || '', s.actionedByRole || '', s.actionedAt ? formatActionedAt(s.actionedAt) : '',
+      s.lockedBy || '', s.lockedByRole || '', s.lockedAt ? formatActionedAt(s.lockedAt) : ''
     ].map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(",") + "\n";
   });
   var blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -1826,6 +2025,194 @@ function exportSnarfToExcel() {
   document.body.removeChild(link);
   showToast('Export downloaded successfully!', 'success');
 }
+
+
+// ===================== IMPORT FROM CSV (DISASTER RECOVERY) =====================
+function importSnarfFromCsv(event) {
+  if (getCurrentRole() !== 'Admin') {
+    showToast('Only Admin can import data.', 'error');
+    return;
+  }
+
+  var file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+
+  if (!confirm('Importing will MERGE submissions from the CSV.\n\n• Existing records with same Form ID will be UPDATED\n• New records will be ADDED\n\nContinue?')) return;
+
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      var text = e.target.result;
+
+      // Remove BOM if present
+      if (text.charCodeAt(0) === 0xFEFF) text = text.substring(1);
+
+      var rows = parseCsv(text);
+      if (rows.length < 2) {
+        showToast('CSV is empty or invalid.', 'error');
+        return;
+      }
+
+      var headers = rows[0];
+      var existing = getSnarfSubmissions();
+      var existingMap = {};
+      existing.forEach(function (s) { existingMap[s.formId] = s; });
+
+      var added = 0, updated = 0, skipped = 0;
+
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        if (!row || row.length < 2) continue;
+
+        var sub = {};
+        headers.forEach(function (h, j) {
+          sub[csvHeaderToKey(h)] = row[j] || '';
+        });
+
+        if (!sub.formId) { skipped++; continue; }
+
+        // Normalize fields
+        sub.initialConduct = sub.initialConduct === 'Yes';
+        sub.regularConduct = sub.regularConduct === 'Yes';
+        sub.asRequested = sub.asRequested === 'Yes';
+        sub.attachments = sub.attachments || [];
+        sub.stageHistory = sub.stageHistory || [];
+
+        if (existingMap[sub.formId]) {
+          // Merge — preserve attachments + stageHistory from existing
+          var old = existingMap[sub.formId];
+          sub.attachments = old.attachments || [];
+          sub.stageHistory = old.stageHistory || [];
+          existingMap[sub.formId] = sub;
+          updated++;
+        } else {
+          existingMap[sub.formId] = sub;
+          added++;
+        }
+      }
+
+      // Save merged
+      var merged = Object.keys(existingMap).map(function (k) { return existingMap[k]; });
+      saveSnarfSubmissions(merged);
+
+      showToast('Import complete! ✅ ' + added + ' added, ' + updated + ' updated, ' + skipped + ' skipped.', 'success');
+      refreshAll();
+
+    } catch (err) {
+      console.error('CSV import error:', err);
+      showToast('Failed to import CSV. Check file format.', 'error');
+    }
+  };
+  reader.onerror = function () {
+    showToast('Failed to read file.', 'error');
+  };
+  reader.readAsText(file);
+}
+
+// ===================== CSV PARSER (handles quoted values) =====================
+function parseCsv(text) {
+  var rows = [];
+  var row = [];
+  var cur = '';
+  var inQuotes = false;
+
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i];
+    var next = text[i + 1];
+
+    if (inQuotes) {
+      if (ch === '"' && next === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        cur += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        row.push(cur);
+        cur = '';
+      } else if (ch === '\n') {
+        row.push(cur);
+        rows.push(row);
+        row = [];
+        cur = '';
+      } else if (ch === '\r') {
+        // ignore
+      } else {
+        cur += ch;
+      }
+    }
+  }
+  if (cur.length > 0 || row.length > 0) {
+    row.push(cur);
+    rows.push(row);
+  }
+  return rows;
+}
+
+// ===================== MAP CSV HEADERS → submission keys =====================
+function csvHeaderToKey(h) {
+  var map = {
+    "Form ID": "formId",
+    "Original ID": "originalFormId",
+    "Submitted By Name": "submittedByName",
+    "Submitted By Email": "submittedByEmail",
+    "Last Name": "lastName",
+    "First Name": "firstName",
+    "M.I.": "mi",
+    "Office/Division": "office",
+    "Telephone": "telephone",
+    "Date": "date",
+    "Purpose": "purpose",
+    "Description": "description",
+    "Period": "period",
+    "From Date": "fromDate",
+    "To Date": "toDate",
+    "Status": "status",
+    "Reject Category": "rejectCategory",
+    "Reject Reason": "rejectReason",
+    "Initial Conduct": "initialConduct",
+    "Regular Conduct": "regularConduct",
+    "As Requested": "asRequested",
+    "1st Test Count": "firstTestCount",
+    "1st Test Date": "firstTestDate",
+    "2nd Test Count": "secondTestCount",
+    "2nd Test Date": "secondTestDate",
+    "3rd Test Count": "thirdTestCount",
+    "3rd Test Date": "thirdTestDate",
+    "4th Test Count": "fourthTestCount",
+    "4th Test Date": "fourthTestDate",
+    "1st Holes": "firstHoles",
+    "1st Holes Date": "firstHolesDate",
+    "2nd Holes": "secondHoles",
+    "2nd Holes Date": "secondHolesDate",
+    "3rd Holes": "thirdHoles",
+    "3rd Holes Date": "thirdHolesDate",
+    "4th Holes": "fourthHoles",
+    "4th Holes Date": "fourthHolesDate",
+    "1st Warnings": "firstWarnings",
+    "1st Warnings Date": "firstWarningsDate",
+    "2nd Warnings": "secondWarnings",
+    "2nd Warnings Date": "secondWarningsDate",
+    "3rd Warnings": "thirdWarnings",
+    "3rd Warnings Date": "thirdWarningsDate",
+    "4th Warnings": "fourthWarnings",
+    "4th Warnings Date": "fourthWarningsDate",
+    "Actioned By": "actionedBy",
+    "Actioned By Role": "actionedByRole",
+    "Actioned At": "actionedAt",
+    "Locked By": "lockedBy",
+    "Locked By Role": "lockedByRole",
+    "Locked At": "lockedAt"
+  };
+  return map[h] || h;
+}
+
 
 // ===================== PENDINGS TAB (DYNAMIC) =====================
 var pendingsCurrentPage = 1;
@@ -1844,15 +2231,13 @@ function filterPendingsTable() {
   var searchTerm = searchEl ? searchEl.value.toLowerCase().trim() : '';
   var role = getCurrentRole();
 
-  
   var results = getSnarfSubmissions().filter(function (s) {
-  return (s.status || 'Pending') === 'Pending';
+    return (s.status || 'Pending') === 'Pending';
   });
-
 
   if (searchTerm) {
     results = results.filter(function (r) {
-      return [r.formId, r.lastName, r.firstName, r.mi, r.office, r.telephone, r.date, r.purpose, r.description, r.period, r.fromDate, r.toDate].join(" ").toLowerCase().indexOf(searchTerm) !== -1;
+      return [r.formId, r.lastName, r.firstName, r.mi, r.office, r.telephone, r.date, r.purpose, r.description, r.period, r.fromDate, r.toDate, r.lockedBy || "", r.submittedByName || ""].join(" ").toLowerCase().indexOf(searchTerm) !== -1;
     });
   }
 
@@ -1897,7 +2282,10 @@ function addPendingsRow(formData) {
   var per = esc(formData.period);
   var fd = esc(formData.fromDate || '');
   var td2 = esc(formData.toDate || '');
-  row.innerHTML = '<td><input type="checkbox" class="pendings-checkbox" value="' + fId + '" onclick="onPendingsCheckboxChange()" /></td><td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + getStatusBadgeHtml(status) + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + esc(formData.formId) + '\')">👁 View</button></td>';
+  var lockHtml = formData.lockedBy
+    ? '<br><small style="color:#92400e;font-weight:600;">🔒 ' + esc(formData.lockedBy) + '</small>'
+    : '';
+  row.innerHTML = '<td><input type="checkbox" class="pendings-checkbox" value="' + fId + '" onclick="onPendingsCheckboxChange()" /></td><td><strong>' + fId + '</strong></td><td>' + ln + '</td><td>' + fn + '</td><td>' + mi + '</td><td>' + of + '</td><td>' + tel + '</td><td>' + dt + '</td><td title="' + pur + '">' + pur + '</td><td>' + per + '</td><td>' + fd + '</td><td>' + td2 + '</td><td>' + getStatusBadgeHtml(status) + lockHtml + '</td><td><button class="snarf-view-btn" onclick="viewSnarfDetail(\'' + formData.formId + '\')">👁 View</button></td>';
   tbody.appendChild(row);
 }
 
@@ -1935,20 +2323,30 @@ function pendingsBulkAction(action) {
   if (!confirm('Advance ' + ids.length + ' submission(s)?\n\nActioned by: ' + cu.name + ' (' + cu.role + ')')) return;
   var subs = getSnarfSubmissions();
   var validCount = 0;
+  var skippedLocked = 0;
   subs.forEach(function (s) {
     if (ids.indexOf(s.formId) === -1) return;
     if (!canRoleActionSubmission(role, s)) return;
+
+    if (isLocked(s) && s.lockedBy !== cu.name && role !== 'Admin') {
+      skippedLocked++;
+      return;
+    }
+
     var nextSt = getNextStatus(s);
     if (!nextSt) return;
     var currentStatus = s.status || 'Pending';
     if (!s.stageHistory) s.stageHistory = [];
     s.stageHistory.push({ from: currentStatus, to: nextSt, by: cu.name, role: cu.role, at: new Date().toISOString() });
     s.status = nextSt; s.actionedBy = cu.name; s.actionedByRole = cu.role; s.actionedAt = new Date().toISOString();
+    s.lockedBy = null; s.lockedByRole = null; s.lockedAt = null;
     if (nextSt === 'Approved') { s.originalFormId = s.formId; s.formId = generateApprovedId(s.originalFormId, subs); }
     validCount++;
   });
   saveSnarfSubmissions(subs);
-  showToast(validCount + ' submission(s) advanced by ' + cu.name + '.', 'success');
+  var msg = validCount + ' submission(s) advanced by ' + cu.name + '.';
+  if (skippedLocked > 0) msg += ' (' + skippedLocked + ' skipped — locked by others)';
+  showToast(msg, 'success');
   refreshAll();
 }
 
@@ -2200,7 +2598,7 @@ function onResourceFileSelected(event) {
     return;
   }
 
-  var MAX = 3 * 1024 * 1024; // 3 MB
+  var MAX = 3 * 1024 * 1024;
   if (file.size > MAX) {
     showToast('File exceeds 3MB limit.', 'error');
     event.target.value = '';
