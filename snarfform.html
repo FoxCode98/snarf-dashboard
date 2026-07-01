@@ -17,8 +17,6 @@
             position: relative;
         }
 
-        
-
         .back-top-btn {
             position: absolute;
             top: 20px; left: 20px;
@@ -217,21 +215,19 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
-    
-<div class="success-overlay" id="successOverlay">
-    <div class="success-box">
-        <div class="checkmark">✅</div>
-        <h2>Submitted Successfully!</h2>
-        <p>Your SNARF request has been submitted and is now pending review.</p>
-        <p>Your Form ID:</p>
-        <div class="form-id" id="successFormId">SNARF-00001</div>
-        <div>
-            <button onclick="closeSuccessAndReset()">Submit Another</button>
-            <button class="btn-secondary" onclick="goBack()">Back</button>
+    <div class="success-overlay" id="successOverlay">
+        <div class="success-box">
+            <div class="checkmark">✅</div>
+            <h2>Submitted Successfully!</h2>
+            <p>Your SNARF request has been submitted and is now pending review.</p>
+            <p>Your Form ID:</p>
+            <div class="form-id" id="successFormId">SNARF-00001</div>
+            <div>
+                <button onclick="closeSuccessAndReset()">Submit Another</button>
+                <button class="btn-secondary" onclick="goBack()">Back</button>
+            </div>
         </div>
     </div>
-</div>
-
 
     <button class="back-top-btn" onclick="goBack()">← Back</button>
 
@@ -275,14 +271,15 @@
         </div>
 
         <div class="input-group" style="margin-top: 30px;">
+            <label>Detailed Description of Request <span style="color:red;">*</span></label>
+            <textarea id="description" rows="4" placeholder="Provide a detailed description..."></textarea>
+            <span class="error-message" id="descriptionError">Description is required.</span>
+        </div>
+
+        <div class="input-group" style="margin-top: 30px;">
             <label>Purpose of Justification <span style="color:red;">*</span></label>
             <textarea id="purpose" rows="4" placeholder="State the purpose or justification..."></textarea>
             <span class="error-message" id="purposeError">Purpose is required.</span>
-        </div>
-
-        <div class="input-group" style="margin-top: 20px;">
-            <label>Detailed Description of Purpose</label>
-            <textarea id="description" rows="6" placeholder="Provide a detailed description..."></textarea>
         </div>
 
         <div class="period-section">
@@ -316,10 +313,11 @@
 
         <!-- ===== FILE UPLOAD SECTION ===== -->
         <div class="file-upload-section">
-            <label>📎 Attachments <span style="font-weight:normal;color:#6b7280;font-size:12px;">(optional)</span></label>
+            <label>📎 Attachments <span style="color:red;">*</span></label>
             <input type="file" id="fileInput" accept=".pdf,.pptx,.jpeg,.jpg,.png" multiple style="display:none;" onchange="handleFileSelect(event)" />
             <button type="button" class="file-upload-btn" onclick="document.getElementById('fileInput').click()">+ Add File</button>
             <span class="file-upload-hint">Allowed: PDF, PPTX, JPEG, PNG • Max 2MB each • Up to 3 files</span>
+            <span class="error-message" id="fileError">At least 1 attachment is required.</span>
             <div class="file-list" id="fileList"></div>
         </div>
 
@@ -348,25 +346,18 @@
             setTimeout(() => { toast.remove(); }, 3000);
         }
 
-        
-        
-function goBack() {
-  // If this tab was opened from another window (e.g. dashboard's "+ New SNARF Form"),
-  // just close this tab — that returns the user to the dashboard naturally.
-  if (window.opener && !window.opener.closed) {
-    window.close();
-    return;
-  }
+        function goBack() {
+          if (window.opener && !window.opener.closed) {
+            window.close();
+            return;
+          }
 
-  // Otherwise (opened directly from landing page, bookmark, etc.), use browser history
-  if (window.history.length > 1 && document.referrer) {
-    window.history.back();
-  } else {
-    window.location.href = 'landingpage.html';
-  }
-}
-
-
+          if (window.history.length > 1 && document.referrer) {
+            window.history.back();
+          } else {
+            window.location.href = 'landingpage.html';
+          }
+        }
 
         function toggleDates(enable) {
             document.getElementById("fromDate").disabled = !enable;
@@ -395,7 +386,8 @@ function goBack() {
             document.querySelectorAll('.error-message').forEach(el => el.classList.remove('visible'));
         }
 
-        ['lastName', 'firstName', 'office', 'purpose'].forEach(id => {
+        // ✅ Now includes 'description'
+        ['lastName', 'firstName', 'office', 'purpose', 'description'].forEach(id => {
             document.getElementById(id).addEventListener('input', function() {
                 if (this.value.trim()) clearError(id, id + 'Error');
             });
@@ -448,6 +440,8 @@ function goBack() {
                         dataUrl: e.target.result
                     });
                     renderFileList();
+                    // ✅ Clear file error when at least 1 file is added
+                    clearError(null, 'fileError');
                 };
                 reader.onerror = function () {
                     showToast('Failed to read "' + file.name + '".', 'error');
@@ -489,8 +483,18 @@ function goBack() {
             clearAllErrors();
             let isValid = true;
 
-            [{ id: 'lastName', errorId: 'lastNameError' }, { id: 'firstName', errorId: 'firstNameError' }, { id: 'office', errorId: 'officeError' }, { id: 'purpose', errorId: 'purposeError' }].forEach(field => {
-                if (!document.getElementById(field.id).value.trim()) { showError(field.id, field.errorId); isValid = false; }
+            // ✅ Now includes 'description' as required
+            [
+                { id: 'lastName',    errorId: 'lastNameError' },
+                { id: 'firstName',   errorId: 'firstNameError' },
+                { id: 'office',      errorId: 'officeError' },
+                { id: 'description', errorId: 'descriptionError' },
+                { id: 'purpose',     errorId: 'purposeError' }
+            ].forEach(field => {
+                if (!document.getElementById(field.id).value.trim()) {
+                    showError(field.id, field.errorId);
+                    isValid = false;
+                }
             });
 
             const selectedPeriod = document.querySelector('input[name="period"]:checked');
@@ -506,6 +510,13 @@ function goBack() {
                     showError('toDate', 'toDateError'); isValid = false;
                 }
             }
+
+            // ✅ Require at least 1 attachment
+            if (attachedFiles.length === 0) {
+                showError(null, 'fileError');
+                isValid = false;
+            }
+
             return isValid;
         }
 
@@ -540,56 +551,74 @@ function goBack() {
             }
         }
 
-        function submitForm() {
-            if (!validateForm()) {
-                showToast('Please fill in all required fields.', 'error');
-                const firstError = document.querySelector('.input-error, .error-message.visible');
-                if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                return;
-            }
+        
+function submitForm() {
+    if (!validateForm()) {
+        showToast('Please fill in all required fields.', 'error');
+        const firstError = document.querySelector('.input-error, .error-message.visible');
+        if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
 
-            const selectedPeriod = document.querySelector('input[name="period"]:checked');
-            const formId = generateFormId();
+    const selectedPeriod = document.querySelector('input[name="period"]:checked');
+    const formId = generateFormId();
 
-            const fromVal = document.getElementById("fromDate").value;
-            const toVal = document.getElementById("toDate").value;
-            let fromDisplay = '', toDisplay = '';
+    const fromVal = document.getElementById("fromDate").value;
+    const toVal = document.getElementById("toDate").value;
+    let fromDisplay = '', toDisplay = '';
 
-            if (fromVal) {
-                const fd = new Date(fromVal + 'T00:00:00');
-                fromDisplay = (fd.getMonth()+1).toString().padStart(2,'0') + '/' + fd.getDate().toString().padStart(2,'0') + '/' + fd.getFullYear();
-            }
-            if (toVal) {
-                const td = new Date(toVal + 'T00:00:00');
-                toDisplay = (td.getMonth()+1).toString().padStart(2,'0') + '/' + td.getDate().toString().padStart(2,'0') + '/' + td.getFullYear();
-            }
+    if (fromVal) {
+        const fd = new Date(fromVal + 'T00:00:00');
+        fromDisplay = (fd.getMonth()+1).toString().padStart(2,'0') + '/' + fd.getDate().toString().padStart(2,'0') + '/' + fd.getFullYear();
+    }
+    if (toVal) {
+        const td = new Date(toVal + 'T00:00:00');
+        toDisplay = (td.getMonth()+1).toString().padStart(2,'0') + '/' + td.getDate().toString().padStart(2,'0') + '/' + td.getFullYear();
+    }
 
-            const formData = {
-                formId: formId,
-                lastName: document.getElementById("lastName").value.trim(),
-                firstName: document.getElementById("firstName").value.trim(),
-                mi: document.getElementById("mi").value.trim(),
-                office: document.getElementById("office").value.trim(),
-                telephone: document.getElementById("telephone").value.trim(),
-                date: document.getElementById("todayDate").value,
-                purpose: document.getElementById("purpose").value.trim(),
-                description: document.getElementById("description").value.trim(),
-                period: selectedPeriod.value,
-                fromDate: fromDisplay,
-                toDate: toDisplay,
-                status: "Pending",
-                actionedBy: "",
-                actionedByRole: "",
-                actionedAt: "",
-                submittedAt: new Date().toISOString(),
-                attachments: attachedFiles
-            };
+    // ✅ NEW — capture who submitted
+    let submitterName = '';
+    let submitterEmail = '';
+    try {
+        const cu = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        submitterName = cu.name || '';
+        submitterEmail = (cu.email || '').toLowerCase();
+    } catch (e) {
+        submitterName = '';
+        submitterEmail = '';
+    }
 
-            if (!saveSnarfSubmission(formData)) return;
+    const formData = {
+        formId: formId,
+        lastName: document.getElementById("lastName").value.trim(),
+        firstName: document.getElementById("firstName").value.trim(),
+        mi: document.getElementById("mi").value.trim(),
+        office: document.getElementById("office").value.trim(),
+        telephone: document.getElementById("telephone").value.trim(),
+        date: document.getElementById("todayDate").value,
+        purpose: document.getElementById("purpose").value.trim(),
+        description: document.getElementById("description").value.trim(),
+        period: selectedPeriod.value,
+        fromDate: fromDisplay,
+        toDate: toDisplay,
+        status: "Pending",
+        actionedBy: "",
+        actionedByRole: "",
+        actionedAt: "",
+        submittedAt: new Date().toISOString(),
+        attachments: attachedFiles,
 
-            document.getElementById('successFormId').textContent = formId;
-            document.getElementById('successOverlay').classList.add('active');
-        }
+        // ✅ NEW — OWNERSHIP TRACKING
+        submittedByName: submitterName,
+        submittedByEmail: submitterEmail
+    };
+
+    if (!saveSnarfSubmission(formData)) return;
+
+    document.getElementById('successFormId').textContent = formId;
+    document.getElementById('successOverlay').classList.add('active');
+}
+
 
         function closeSuccessAndReset() {
             document.getElementById('successOverlay').classList.remove('active');
